@@ -5,17 +5,22 @@ agent draft × a Balatro-style jackpot finale. Built to make skeptical executive
 things in sequence — the compounding chaos of running a business manually, and the exponential
 relief of stacking Agentforce agents.
 
-**The arc: drown → draft → delegate → dominate.**
+**The arc: drown → deploy → fix the data → dominate.**
 
-- **Round 1** — 12 chaos tickets, no agents, pure manual triage. You will not keep up. That's the point.
-- **Rounds 2–4** — chaos roughly triples while your drafted agents intercept more and more of it live.
-  By round 4 you're mostly watching your system work.
+- **Every ticket is a decision.** Inspect it, then choose: ROUTINE → handle, TEAM-TAGGED → route,
+  CRITICAL → escalate (or delegate to an agent). Wrong calls make things worse.
+- **Round 1** — pure judgment, no agents. You will not keep up. That's the point.
+- **Round 2** — your first agent comes online *into your data swamp*: it runs at 25% of advertised
+  and creates duplicate records. The draft then offers **Fix the Data** (Data 360 unification) —
+  the readiness step that unlocks advertised performance for every agent.
+- **Rounds 3–4** — every capability integrates for a round before it works (no day-one miracles),
+  then the stack compounds. Each card maps to a real Agentforce feature with an honest effect line.
 - **Round 5** — 100+ tickets flood the board. Manual triage is disabled ("No human can triage this").
-  Press **SIMULATE** and watch your stack fire card by card, slot-machine style, past an
-  otherwise-impossible target.
+  Press **SIMULATE** and watch your stack fire card by card past an otherwise-impossible target.
 
-A grey "Manual Ops Inc." ghost score tracks what you'd have earned without agents. It flatlines
-in round 5. It does not survive Q3.
+Each of the six executive roles has its own mission, metric, ticket mix, and agents. A grey
+"Manual Ops Inc." ghost score tracks what you'd have earned without agents. It flatlines in
+round 5. It does not survive Q3.
 
 ## Running it
 
