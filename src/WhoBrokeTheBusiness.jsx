@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 /* ============================================================
    WHO BROKE THE BUSINESS?
-   A 5-round business-chaos roguelite.
+   A 5-round business-chaos roguelite in 8-bit arcade dress.
    Papers, Please escalation × roguelite draft × Balatro payoff.
    ============================================================ */
 
@@ -646,51 +646,66 @@ export default function WhoBrokeTheBusiness() {
     r1ManualRef.current = 0;
   };
 
-  /* ---------- derived visuals ---------- */
+  /* ---------- derived visuals (8-bit skin) ---------- */
 
   const isBossMode = phase === 'bossIntro' || phase === 'bossCrisis' || phase === 'simulate';
   const bgClass =
     phase === 'victory'
-      ? 'bg-gradient-to-b from-sky-50 via-white to-emerald-50'
+      ? 'bg-[#04301f]'
       : isBossMode
-        ? 'bg-[#170606]'
+        ? 'bg-[#1a0303]'
         : round >= 4
-          ? 'bg-sky-50'
+          ? 'bg-[#0d1436]'
           : round === 3
-            ? 'bg-slate-100'
-            : 'bg-slate-200';
+            ? 'bg-[#120d33]'
+            : 'bg-[#160b2e]';
 
   const scoreStage = phase === 'simulate' ? appliedCount : 0;
   const scoreColor =
     phase === 'victory'
-      ? 'text-emerald-600'
+      ? 'text-[#3bff5e]'
       : scoreStage >= 4
-        ? 'text-red-500'
+        ? 'text-[#ff2e9a]'
         : scoreStage === 3
-          ? 'text-amber-400'
+          ? 'text-[#ffe600]'
           : isBossMode
-            ? 'text-white'
-            : 'text-blue-800';
+            ? 'text-[#ff5555]'
+            : 'text-[#3bff5e]';
   const scoreScale = phase === 'simulate' ? 1 + scoreStage * 0.16 : 1;
 
-  const meterColor = meterPct > 66 ? 'bg-red-500' : meterPct > 33 ? 'bg-amber-400' : 'bg-emerald-500';
+  const SEGS = 24;
+  const filledSegs = Math.round((meterPct / 100) * SEGS);
+  const segColor = meterPct > 66 ? '#ff2d2d' : meterPct > 33 ? '#ffe600' : '#3bff5e';
 
   const fullEngine = role ? engineOf(role.base, deck) : null;
   const finalScore = fullEngine ? fullEngine.total + manualScore : 0;
   const ghostMultiple = ghostScore > 0 ? Math.round(finalScore / Math.max(1, ghostScore)) : finalScore;
 
+  const panelCls = isBossMode
+    ? 'bg-black border-4 border-[#ff2d2d] shadow-[6px_6px_0_#000]'
+    : 'bg-black border-4 border-[#2ee6ff] shadow-[6px_6px_0_rgba(255,46,154,0.55)]';
+
   /* ============================ RENDER ============================ */
 
   return (
-    <div className={`min-h-screen w-full font-sans transition-colors duration-1000 ${bgClass} ${shakeCls} relative overflow-hidden ${isBossMode ? 'scanlines' : ''}`}>
+    <div className={`min-h-screen w-full transition-colors duration-1000 ${bgClass} ${shakeCls} relative overflow-hidden crt ${isBossMode ? 'scanlines-red' : ''}`} style={{ imageRendering: 'pixelated' }}>
       <style>{`
+        .font-pixel{font-family:'Press Start 2P',monospace;}
+        .font-crt{font-family:'VT323',monospace;}
         @keyframes shakeSK { 0%,100%{transform:translate(0,0)} 20%{transform:translate(-4px,2px)} 40%{transform:translate(4px,-2px)} 60%{transform:translate(-3px,-2px)} 80%{transform:translate(3px,2px)} }
         @keyframes shakeBK { 0%,100%{transform:translate(0,0)} 15%{transform:translate(-9px,5px) rotate(-.4deg)} 30%{transform:translate(9px,-5px) rotate(.4deg)} 45%{transform:translate(-7px,-4px)} 60%{transform:translate(7px,4px)} 75%{transform:translate(-4px,2px)} }
-        .shake-s{animation:shakeSK .45s ease-in-out}
-        .shake-b{animation:shakeBK .65s ease-in-out}
+        .shake-s{animation:shakeSK .45s steps(5)}
+        .shake-b{animation:shakeBK .65s steps(6)}
         @keyframes vibrate { 0%,100%{transform:translate(0)} 25%{transform:translate(1px,-1px)} 50%{transform:translate(-1px,1px)} 75%{transform:translate(1px,1px)} }
-        .vibrate{animation:vibrate .12s linear infinite}
-        .scanlines::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,60,60,.06) 0 2px,transparent 2px 4px);pointer-events:none;z-index:40;}
+        .vibrate{animation:vibrate .12s steps(2) infinite}
+        @keyframes blinkK { 0%,49%{opacity:1} 50%,100%{opacity:.25} }
+        .blink{animation:blinkK .5s steps(1) infinite}
+        .crt::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 2px,transparent 2px 4px);pointer-events:none;z-index:50;}
+        .scanlines-red::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,45,45,.09) 0 3px,transparent 3px 6px);pointer-events:none;z-index:50;}
+        .btn-pixel{font-family:'Press Start 2P',monospace;text-transform:uppercase;border-width:4px;border-style:solid;image-rendering:pixelated;box-shadow:4px 4px 0 #000;}
+        .btn-pixel:hover{transform:translate(-1px,-1px);box-shadow:6px 6px 0 #000;}
+        .btn-pixel:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #000;}
+        @media (prefers-reduced-motion: reduce){ .shake-s,.shake-b,.vibrate,.blink{animation:none} }
       `}</style>
 
       {/* ambient stress noise, rounds 1–2 */}
@@ -699,7 +714,7 @@ export default function WhoBrokeTheBusiness() {
           {AMBIENT_NOISE.map((w, i) => (
             <span
               key={i}
-              className="absolute text-slate-400 opacity-10 font-bold text-2xl"
+              className="absolute font-pixel text-[#ff2d2d] opacity-10 text-sm"
               style={{ top: `${(i * 37) % 90}%`, left: `${(i * 53) % 85}%`, transform: `rotate(${(i * 23) % 40 - 20}deg)` }}
             >
               {w}
@@ -710,32 +725,42 @@ export default function WhoBrokeTheBusiness() {
 
       {/* ================= ROLE SELECT ================= */}
       {phase === 'roleSelect' && (
-        <div className="max-w-5xl mx-auto px-6 py-12">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <p className="text-xs tracking-[0.3em] text-slate-500 font-semibold uppercase">A business simulator in 5 rounds</p>
-            <h1 className="text-5xl md:text-6xl font-black text-slate-900 mt-2">WHO BROKE THE BUSINESS?</h1>
-            <p className="mt-4 text-lg text-slate-600 max-w-2xl">
-              The chaos doubles every round. You don't. Survive five waves, draft your Agentforce stack,
-              and find out what happens when the humans stop drowning.
+        <div className="max-w-5xl mx-auto px-6 py-10 relative z-10">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
+            <p className="font-pixel text-[10px] text-[#ff2e9a] tracking-widest">★ A BUSINESS SIMULATOR IN 5 ROUNDS ★</p>
+            <h1
+              className="font-pixel text-3xl md:text-5xl text-[#f2e8c9] mt-5 leading-snug"
+              style={{ textShadow: '4px 4px 0 #ff2e9a, 8px 8px 0 #000' }}
+            >
+              WHO BROKE THE
+              <br />
+              BUSINESS?
+            </h1>
+            <p className="font-crt text-2xl text-[#2ee6ff] mt-5 max-w-2xl mx-auto leading-tight">
+              The chaos doubles every round. You don't. Survive five waves, draft your Agentforce
+              stack, and find out what happens when the humans stop drowning.
             </p>
-            <p className="mt-2 text-sm text-slate-500 font-medium">Pick your seat at the table:</p>
+            <div className="inline-block mt-5 bg-black border-4 border-[#f2e8c9] px-5 py-2">
+              <p className="font-crt text-xl text-[#f2e8c9]">The business is already on fire.</p>
+            </div>
+            <p className="font-pixel text-xs text-[#ffe600] mt-8 blink">▼ PICK YOUR ROLE ▼</p>
           </motion.div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
             {ROLES.map((r, i) => (
               <motion.button
                 key={r.key}
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.08 * i }}
-                whileHover={{ y: -8, scale: 1.03, rotateX: 4 }}
+                whileHover={{ y: -6 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => pickRole(r)}
-                className="bg-white rounded-2xl border border-slate-200 shadow-md hover:shadow-xl p-6 text-left transition-shadow"
+                className="group bg-black border-4 border-[#2ee6ff] hover:border-[#ff2e9a] shadow-[6px_6px_0_#000] hover:shadow-[8px_8px_0_rgba(255,46,154,0.6)] p-5 text-left"
               >
-                <div className="text-4xl">{r.emoji}</div>
-                <div className="mt-3 font-bold text-slate-900 text-lg leading-tight">{r.name}</div>
-                <div className="text-slate-500 text-sm mt-1">{r.tagline}</div>
-                <div className="mt-4 text-[11px] font-semibold text-blue-700 uppercase tracking-wider">Start the week →</div>
+                <div className="text-5xl text-center bg-[#101024] border-2 border-[#2ee6ff]/40 py-4">{r.emoji}</div>
+                <div className="mt-3 font-pixel text-[11px] text-[#2ee6ff] leading-relaxed">{r.name}</div>
+                <div className="font-crt text-xl text-[#f2e8c9] mt-1 leading-tight">{r.tagline}</div>
+                <div className="mt-3 font-pixel text-[9px] text-[#3bff5e] opacity-0 group-hover:opacity-100">► SELECT</div>
               </motion.button>
             ))}
           </div>
@@ -745,21 +770,21 @@ export default function WhoBrokeTheBusiness() {
       {/* ================= GAME HUD ================= */}
       {role && phase !== 'roleSelect' && phase !== 'victory' && (
         <div className="max-w-5xl mx-auto px-4 pt-4 relative z-10">
-          <div className={`flex flex-wrap items-start justify-between gap-4 rounded-2xl px-5 py-4 ${isBossMode ? 'bg-black/40 border border-red-900' : 'bg-white/80 border border-slate-200'} backdrop-blur shadow-sm`}>
+          <div className={`flex flex-wrap items-start justify-between gap-4 px-5 py-4 ${panelCls}`}>
             <div>
-              <div className={`text-[11px] font-semibold uppercase tracking-wider ${isBossMode ? 'text-red-400' : 'text-slate-500'}`}>
-                {role.emoji} {role.name} · Round {round}/5
+              <div className={`font-pixel text-[9px] ${isBossMode ? 'text-[#ff2d2d]' : 'text-[#ff2e9a]'}`}>
+                {role.emoji} {role.name} · ROUND {round}/5
               </div>
               <motion.div
                 animate={{ scale: scoreScale }}
-                className={`font-black tabular-nums ${scoreColor} ${phase === 'simulate' && scoreStage >= 3 ? 'vibrate' : ''}`}
-                style={{ fontSize: '2.6rem', lineHeight: 1.1, transformOrigin: 'left center' }}
+                className={`font-pixel tabular-nums ${scoreColor} ${phase === 'simulate' && scoreStage >= 3 ? 'vibrate' : ''}`}
+                style={{ fontSize: '1.9rem', lineHeight: 1.3, transformOrigin: 'left center', textShadow: '3px 3px 0 #000' }}
               >
                 {fmt(displayScore)}
               </motion.div>
               {/* GHOST LINE */}
               <div className="mt-1">
-                <div className={`text-sm tabular-nums font-semibold ${ghostDead ? 'text-slate-500 line-through' : 'text-slate-400'}`}>
+                <div className={`font-crt text-xl tabular-nums ${ghostDead ? 'text-[#6b6b7a] line-through' : 'text-[#8b8ba0]'}`}>
                   {fmt(displayGhost)}
                 </div>
                 <AnimatePresence mode="wait">
@@ -769,12 +794,12 @@ export default function WhoBrokeTheBusiness() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: [0, 1, 0.3, 1, 0.3, 1] }}
                       transition={{ duration: 1.6 }}
-                      className="text-[11px] text-red-400 font-semibold"
+                      className="font-pixel text-[8px] text-[#ff2d2d]"
                     >
-                      Manual Ops Inc. did not survive Q3.
+                      MANUAL OPS INC. DID NOT SURVIVE Q3.
                     </motion.div>
                   ) : (
-                    <motion.div key="alive" className={`text-[11px] ${isBossMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                    <motion.div key="alive" className="font-crt text-base text-[#6b6b7a]">
                       Manual Ops Inc. (you, without agents)
                     </motion.div>
                   )}
@@ -784,8 +809,8 @@ export default function WhoBrokeTheBusiness() {
 
             <div className="flex-1 min-w-[240px]">
               {/* FORMULA BAR */}
-              <div className={`text-[11px] font-semibold uppercase tracking-wider ${isBossMode ? 'text-slate-400' : 'text-slate-500'}`}>The formula</div>
-              <div className={`mt-1 flex flex-wrap items-center gap-1 font-mono text-sm ${isBossMode ? 'text-slate-200' : 'text-slate-800'}`}>
+              <div className={`font-pixel text-[9px] ${isBossMode ? 'text-[#ff5555]' : 'text-[#ffe600]'}`}>THE FORMULA</div>
+              <div className={`mt-1 flex flex-wrap items-center gap-1 font-crt text-xl ${isBossMode ? 'text-[#f2e8c9]' : 'text-[#2ee6ff]'}`}>
                 <span>(</span>
                 <span className="font-bold">{role.base}</span>
                 {deck.filter((c) => c.type === 'additive' || c.type === 'trigger').map((c, i) => {
@@ -797,7 +822,7 @@ export default function WhoBrokeTheBusiness() {
                       key={c.name + i}
                       initial={{ opacity: 0, x: -8 }}
                       animate={{ opacity: applied ? 1 : 0.35, x: 0, scale: firing ? 1.25 : 1 }}
-                      className={firing ? 'text-amber-500 font-black' : applied ? 'font-bold' : ''}
+                      className={firing ? 'text-[#ffe600] font-bold' : applied ? 'font-bold' : ''}
                     >
                       {' '}+ {c.value}
                     </motion.span>
@@ -813,37 +838,40 @@ export default function WhoBrokeTheBusiness() {
                       key={c.name + i}
                       initial={{ opacity: 0, x: -8 }}
                       animate={{ opacity: applied ? 1 : 0.35, x: 0, scale: firing ? 1.35 : 1 }}
-                      className={firing ? 'text-red-500 font-black' : applied ? 'font-bold' : ''}
+                      className={firing ? 'text-[#ff2e9a] font-bold' : applied ? 'font-bold' : ''}
                     >
                       {' '}× {c.value.toFixed(1)}
                     </motion.span>
                   );
                 })}
                 <span> = </span>
-                <span className={`font-black ${isBossMode ? 'text-amber-400' : 'text-blue-800'}`}>{fmt(engineOf(role.base, deck.slice(0, appliedCount)).total)}</span>
-                {manualScore > 0 && <span className={`text-[11px] ${isBossMode ? 'text-slate-500' : 'text-slate-400'}`}>+ {manualScore} hustle</span>}
+                <span className="font-bold text-[#3bff5e]">{fmt(engineOf(role.base, deck.slice(0, appliedCount)).total)}</span>
+                {manualScore > 0 && <span className="font-crt text-base text-[#6b6b7a]">+ {manualScore} hustle</span>}
               </div>
 
-              {/* CHAOS METER */}
+              {/* CHAOS METER — segmented blocks */}
               <div className="mt-3">
-                <div className="flex justify-between text-[11px] font-semibold uppercase tracking-wider">
-                  <span className={isBossMode ? 'text-red-400' : 'text-slate-500'}>Chaos</span>
-                  <span className={meterPct > 66 ? 'text-red-500' : isBossMode ? 'text-slate-400' : 'text-slate-500'}>{meterPct}%</span>
+                <div className="flex justify-between font-pixel text-[9px]">
+                  <span className={isBossMode ? 'text-[#ff2d2d]' : 'text-[#ff2e9a]'}>⚠ OPERATIONAL CHAOS</span>
+                  <span className={meterPct > 66 ? 'text-[#ff2d2d]' : 'text-[#8b8ba0]'}>{meterPct}%</span>
                 </div>
-                <div className={`h-3 rounded-full overflow-hidden mt-1 ${isBossMode ? 'bg-red-950' : 'bg-slate-200'}`}>
-                  <motion.div
-                    animate={{ width: `${meterPct}%` }}
-                    transition={{ type: 'tween', duration: meterOverride === 0 ? 1.4 : 0.4, ease: 'easeOut' }}
-                    className={`h-full ${meterColor} ${meterPct > 80 ? 'animate-pulse' : ''}`}
-                  />
+                <div className={`flex gap-[3px] mt-1 p-[3px] bg-[#0a0514] border-2 ${meterPct > 80 ? 'border-[#ff2d2d] blink' : 'border-[#2ee6ff]/50'}`}>
+                  {Array.from({ length: SEGS }).map((_, i) => (
+                    <motion.div
+                      key={i}
+                      animate={{ backgroundColor: i < filledSegs ? segColor : '#1a1130' }}
+                      transition={{ duration: 0.25 }}
+                      className="h-3 flex-1"
+                    />
+                  ))}
                 </div>
               </div>
             </div>
 
             {phase === 'triage' && (
-              <div className={`text-center px-4 py-2 rounded-xl font-black text-2xl tabular-nums ${timeLeft <= 4 ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-700'}`}>
-                {timeLeft}s
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">triage</div>
+              <div className={`text-center px-4 py-2 border-4 ${timeLeft <= 4 ? 'border-[#ff2d2d] bg-[#2b0505]' : 'border-[#ffe600] bg-[#151505]'}`}>
+                <span className={`font-pixel text-2xl tabular-nums ${timeLeft <= 4 ? 'text-[#ff2d2d] blink' : 'text-[#ffe600]'}`}>{timeLeft}</span>
+                <div className="font-pixel text-[8px] text-[#8b8ba0] mt-1">TRIAGE</div>
               </div>
             )}
           </div>
@@ -857,12 +885,12 @@ export default function WhoBrokeTheBusiness() {
             <motion.div
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
-              className="absolute left-1/2 -translate-x-1/2 top-0 z-30 bg-black text-red-400 text-sm font-bold px-4 py-2 rounded-xl border border-red-800 shadow-lg"
+              className="absolute left-1/2 -translate-x-1/2 top-0 z-30 bg-black text-[#ff2d2d] font-pixel text-[10px] px-4 py-3 border-4 border-[#ff2d2d] shadow-[4px_4px_0_#000]"
             >
-              No human can triage this.
+              NO HUMAN CAN TRIAGE THIS.
             </motion.div>
           )}
-          <div className={`flex flex-wrap gap-2 content-start min-h-[280px] rounded-2xl p-4 ${isBossMode ? 'bg-black/30 border border-red-950' : 'bg-white/50 border border-slate-200'}`}>
+          <div className={`flex flex-wrap gap-2 content-start min-h-[280px] p-4 ${isBossMode ? 'bg-black/60 border-4 border-[#7a0000]' : 'bg-[#0a0514]/80 border-4 border-[#2ee6ff]/40'}`}>
             <AnimatePresence>
               {tickets.map((t) => (
                 <motion.button
@@ -879,12 +907,12 @@ export default function WhoBrokeTheBusiness() {
                   transition={t.fate === 'agent' ? { duration: 0.42, ease: 'easeIn' } : t.fate === 'manual' ? { duration: 0.22 } : { type: 'spring', stiffness: 400, damping: 22, x: { repeat: t.escalated ? Infinity : 0, duration: 0.35 } }}
                   exit={{ opacity: 0, transition: { duration: 0.01 } }}
                   onClick={() => clickTicket(t)}
-                  className={`text-left rounded-lg px-2.5 py-1.5 border shadow-sm select-none cursor-pointer ${round === 5 ? 'text-[9px] max-w-[150px]' : 'text-[11px] max-w-[210px]'} leading-tight font-medium ${
+                  className={`text-left font-crt px-2 py-1 border-2 shadow-[3px_3px_0_#000] select-none cursor-pointer ${round === 5 ? 'text-sm max-w-[150px]' : 'text-lg max-w-[220px]'} leading-none ${
                     t.escalated
-                      ? 'bg-red-500 text-white border-red-600'
+                      ? 'bg-[#ff2d2d] text-black border-[#7a0000] blink'
                       : isBossMode
-                        ? 'bg-red-950/80 text-red-200 border-red-900'
-                        : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400 hover:shadow-md'
+                        ? 'bg-[#2b0505] text-[#ff9d9d] border-[#7a0000]'
+                        : 'bg-[#0d0d1f] text-[#f2e8c9] border-[#2ee6ff] hover:bg-[#141433] hover:border-[#ffe600]'
                   }`}
                 >
                   <span className="mr-1">{CATS[t.cat].emoji}</span>
@@ -893,7 +921,7 @@ export default function WhoBrokeTheBusiness() {
               ))}
             </AnimatePresence>
             {phase === 'triage' && liveTickets.length === 0 && (
-              <div className="w-full text-center text-slate-400 text-sm py-16">…it's quiet. Too quiet.</div>
+              <div className="w-full text-center font-crt text-xl text-[#6b6b7a] py-16">…it's quiet. Too quiet.</div>
             )}
           </div>
 
@@ -906,17 +934,17 @@ export default function WhoBrokeTheBusiness() {
                     initial={{ scale: 0.6, opacity: 0 }}
                     animate={{ scale: [1, 1.06, 1], opacity: 1 }}
                     transition={{ scale: { repeat: Infinity, duration: 1.2 } }}
-                    whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={runSimulate}
-                    className="bg-gradient-to-r from-amber-400 to-amber-500 text-black font-black text-2xl px-12 py-4 rounded-2xl shadow-[0_0_40px_rgba(251,191,36,0.5)] uppercase tracking-widest"
+                    className="btn-pixel bg-black text-[#3bff5e] text-xl px-12 py-5 border-[#3bff5e]"
+                    style={{ boxShadow: '0 0 30px rgba(59,255,94,0.5), 4px 4px 0 #000' }}
                   >
-                    ▶ Simulate
+                    ► SIMULATE
                   </motion.button>
                 )}
               </AnimatePresence>
-              <div className="mt-3 text-red-400 text-sm font-semibold">
-                Target: <span className="text-amber-400 font-black text-lg tabular-nums">{fmt(bossTarget)}</span> — impossible by hand.
+              <div className="mt-4 font-pixel text-[10px] text-[#ff5555]">
+                TARGET: <span className="text-[#ffe600] text-sm tabular-nums">{fmt(bossTarget)}</span> — IMPOSSIBLE BY HAND
               </div>
             </div>
           )}
@@ -933,7 +961,8 @@ export default function WhoBrokeTheBusiness() {
                 initial={{ scaleX: 0 }}
                 animate={{ scaleX: 1 }}
                 transition={{ duration: 0.8 }}
-                className="absolute top-1/2 left-2 right-2 h-0.5 bg-gradient-to-r from-blue-400 via-amber-400 to-red-400 origin-left z-0"
+                className="absolute top-1/2 left-2 right-2 h-1 origin-left z-0"
+                style={{ background: 'repeating-linear-gradient(90deg,#2ee6ff 0 8px,#ff2e9a 8px 16px,#ffe600 16px 24px)' }}
               />
             )}
             {deck.map((c, i) => (
@@ -941,26 +970,22 @@ export default function WhoBrokeTheBusiness() {
                 key={c.name + i}
                 layout
                 initial={{ scale: 0.6, y: 30, opacity: 0 }}
-                animate={{
-                  scale: simStep === i ? 1.12 : 1,
-                  y: 0,
-                  opacity: 1,
-                  boxShadow: simStep === i ? '0 0 30px rgba(251,191,36,0.8)' : '0 1px 4px rgba(0,0,0,0.1)',
-                }}
+                animate={{ scale: simStep === i ? 1.12 : 1, y: 0, opacity: 1 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                className={`relative z-10 rounded-xl border px-3 py-2 min-w-[150px] ${
+                className={`relative z-10 border-4 px-3 py-2 min-w-[150px] bg-black shadow-[4px_4px_0_#000] ${
                   simStep === i
-                    ? 'bg-amber-50 border-amber-400'
+                    ? 'border-[#ffe600]'
                     : isBossMode
-                      ? 'bg-black/60 border-red-900 text-slate-200'
-                      : 'bg-white border-slate-200'
+                      ? 'border-[#7a0000]'
+                      : 'border-[#ff2e9a]'
                 }`}
+                style={simStep === i ? { boxShadow: '0 0 30px rgba(255,230,0,0.7), 4px 4px 0 #000' } : undefined}
               >
                 <motion.div key={agentPulse[i] || 0} initial={{ scale: 1.3 }} animate={{ scale: 1 }} className="text-xl">
                   {c.emoji}
                 </motion.div>
-                <div className={`text-[11px] font-bold leading-tight ${isBossMode && simStep !== i ? 'text-slate-200' : 'text-slate-800'}`}>{c.name}</div>
-                <div className="text-[10px] text-slate-400 font-semibold">
+                <div className={`font-pixel text-[8px] leading-relaxed mt-1 ${simStep === i ? 'text-[#ffe600]' : 'text-[#2ee6ff]'}`}>{c.name}</div>
+                <div className="font-crt text-base text-[#8b8ba0]">
                   {c.type === 'multiplier' || c.type === 'orchestrator' ? `×${c.value.toFixed(1)}` : `+${c.value}`}
                   {' · '}{c.cat === 'all' ? '⚡ all chaos' : `${CATS[c.cat].emoji} ${CATS[c.cat].label}`}
                 </div>
@@ -977,21 +1002,26 @@ export default function WhoBrokeTheBusiness() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center px-6"
+            className="fixed inset-0 z-40 bg-black/85 flex items-center justify-center px-6 crt"
           >
             <motion.div
               initial={{ scale: 0.8, y: 30 }}
               animate={{ scale: 1, y: 0 }}
               transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-              className="text-center max-w-xl"
+              className="text-center max-w-2xl"
             >
-              <div className="inline-block bg-red-600 text-white text-xs font-black tracking-[0.25em] uppercase px-4 py-1.5 rounded-full">
-                Round {round} · {ROUND_CFG[round].tickets} incoming
+              <div className="inline-block bg-[#ff2d2d] text-black font-pixel text-[10px] px-4 py-2 border-4 border-black shadow-[4px_4px_0_#7a0000]">
+                ROUND {round} · {ROUND_CFG[round].tickets} INCOMING
               </div>
-              <h2 className="text-4xl md:text-5xl font-black text-white mt-4">{role.waves[round - 1][0]}</h2>
-              <p className="text-slate-300 text-lg mt-3">{role.waves[round - 1][1]}</p>
-              <p className="text-slate-500 text-sm mt-5 font-semibold">
-                {round === 1 ? 'Click tickets to clear them. Good luck. You will need it.' : 'Your agents are watching the board.'}
+              <h2
+                className="font-pixel text-2xl md:text-4xl text-[#ffe600] mt-6 leading-snug"
+                style={{ textShadow: '4px 4px 0 #ff2e9a, 7px 7px 0 #000' }}
+              >
+                {role.waves[round - 1][0]}
+              </h2>
+              <p className="font-crt text-2xl text-[#2ee6ff] mt-4 leading-tight">{role.waves[round - 1][1]}</p>
+              <p className="font-crt text-xl text-[#8b8ba0] mt-6">
+                {round === 1 ? '► Click tickets to clear them. Good luck. You will need it.' : '► Your agents are watching the board.'}
               </p>
             </motion.div>
           </motion.div>
@@ -1005,40 +1035,46 @@ export default function WhoBrokeTheBusiness() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-slate-900/80 backdrop-blur flex items-center justify-center px-4"
+            className="fixed inset-0 z-40 bg-black/90 flex items-center justify-center px-4 crt"
           >
             <div className="max-w-3xl w-full text-center">
-              <motion.h2 initial={{ y: -16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="text-3xl md:text-4xl font-black text-white">
-                {round === 1 ? 'Unlock Agentforce.' : `Draft ${round}: reinforce the stack.`}
+              <motion.h2
+                initial={{ y: -16, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                className="font-pixel text-xl md:text-3xl text-[#f2e8c9] leading-snug"
+                style={{ textShadow: '3px 3px 0 #ff2e9a, 6px 6px 0 #000' }}
+              >
+                {round === 1 ? 'UNLOCK AGENTFORCE.' : `DRAFT ${round}: REINFORCE THE STACK`}
               </motion.h2>
-              <p className="text-slate-400 mt-2 text-sm">
+              <p className="font-crt text-xl text-[#8b8ba0] mt-3">
                 {round === 1
                   ? `That was ${ROUND_CFG[1].tickets} tickets. You cleared ${manualClears}. It doubles from here. Draft an agent.`
                   : 'One pick. It fires every round from now on.'}
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-8">
                 {draftOptions.map((c, i) => (
                   <motion.button
                     key={c.name}
-                    initial={{ y: 60, opacity: 0, rotate: i === 0 ? -3 : i === 2 ? 3 : 0 }}
-                    animate={{ y: 0, opacity: 1, rotate: 0 }}
+                    initial={{ y: 60, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.12 * i, type: 'spring', stiffness: 260, damping: 20 }}
-                    whileHover={{ y: -12, scale: 1.05, rotateX: 6, boxShadow: '0 24px 48px rgba(0,0,0,0.5)' }}
+                    whileHover={{ y: -8 }}
                     whileTap={{ scale: 0.96 }}
                     onClick={() => draftCard(c)}
-                    className="bg-gradient-to-b from-white to-slate-100 rounded-2xl p-5 text-left border-2 border-slate-300 hover:border-amber-400 shadow-xl"
+                    className="group bg-black p-5 text-left border-4 border-[#2ee6ff] hover:border-[#ffe600] shadow-[6px_6px_0_#000] hover:shadow-[8px_8px_0_rgba(255,230,0,0.5)]"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-4xl">{c.emoji}</span>
-                      <span className="text-[10px] font-black uppercase tracking-wider bg-blue-700 text-white px-2 py-0.5 rounded-full">
-                        {c.type}
+                      <span className="text-4xl bg-[#101024] border-2 border-[#2ee6ff]/40 px-3 py-2">{c.emoji}</span>
+                      <span className="font-pixel text-[8px] bg-[#ff2e9a] text-black px-2 py-1 border-2 border-black">
+                        {c.type.toUpperCase()}
                       </span>
                     </div>
-                    <div className="mt-3 font-black text-slate-900 leading-tight">{c.name}</div>
-                    <div className="mt-1 text-2xl font-black text-blue-700">
+                    <div className="mt-4 font-pixel text-[10px] text-[#2ee6ff] leading-relaxed">{c.name}</div>
+                    <div className="mt-2 font-pixel text-xl text-[#3bff5e]" style={{ textShadow: '2px 2px 0 #000' }}>
                       {c.type === 'multiplier' || c.type === 'orchestrator' ? `×${c.value.toFixed(1)}` : `+${c.value}`}
                     </div>
-                    <div className="mt-2 text-xs text-slate-500 leading-snug">{c.desc}</div>
+                    <div className="mt-2 font-crt text-lg text-[#f2e8c9] leading-tight">{c.desc}</div>
+                    <div className="mt-3 font-pixel text-[9px] text-[#3bff5e] opacity-0 group-hover:opacity-100">► DRAFT</div>
                   </motion.button>
                 ))}
               </div>
@@ -1054,48 +1090,47 @@ export default function WhoBrokeTheBusiness() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-slate-900/80 backdrop-blur flex items-center justify-center px-4"
+            className="fixed inset-0 z-40 bg-black/90 flex items-center justify-center px-4 crt"
           >
             <motion.div
               initial={{ scale: 0.85, y: 30 }}
               animate={{ scale: 1, y: 0 }}
               transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-              className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8"
+              className="bg-black border-4 border-[#2ee6ff] shadow-[8px_8px_0_rgba(255,46,154,0.55)] max-w-lg w-full p-7"
             >
-              <div className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-400">Round {summary.round} debrief</div>
+              <div className="font-pixel text-[10px] text-[#ffe600]">■ ROUND {summary.round} DEBRIEF ■</div>
               <div className="grid grid-cols-2 gap-3 mt-5">
                 {[
-                  ['Chaos volume', summary.volume, 'text-slate-900'],
-                  ['Cleared by you', summary.manual, 'text-blue-700'],
-                  ['Cleared by agents', summary.auto, 'text-emerald-600'],
-                  ['Escalated', summary.esc, summary.esc > 3 ? 'text-red-500' : 'text-slate-500'],
+                  ['CHAOS VOLUME', summary.volume, 'text-[#f2e8c9]'],
+                  ['CLEARED BY YOU', summary.manual, 'text-[#2ee6ff]'],
+                  ['CLEARED BY AGENTS', summary.auto, 'text-[#3bff5e]'],
+                  ['ESCALATED', summary.esc, summary.esc > 3 ? 'text-[#ff2d2d]' : 'text-[#8b8ba0]'],
                 ].map(([label, val, color]) => (
-                  <div key={label} className="bg-slate-50 rounded-xl p-3">
-                    <div className={`text-2xl font-black tabular-nums ${color}`}>{val}</div>
-                    <div className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">{label}</div>
+                  <div key={label} className="bg-[#0d0d1f] border-2 border-[#2ee6ff]/40 p-3">
+                    <div className={`font-pixel text-lg tabular-nums ${color}`}>{val}</div>
+                    <div className="font-pixel text-[7px] text-[#8b8ba0] mt-2">{label}</div>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 flex items-baseline gap-4">
+              <div className="mt-4 flex items-baseline gap-5">
                 <div>
-                  <div className="text-3xl font-black text-blue-800 tabular-nums">{fmt(summary.score)}</div>
-                  <div className="text-[11px] text-slate-500 font-semibold">Total impact</div>
+                  <div className="font-pixel text-xl text-[#3bff5e] tabular-nums" style={{ textShadow: '2px 2px 0 #000' }}>{fmt(summary.score)}</div>
+                  <div className="font-crt text-base text-[#8b8ba0]">Total impact</div>
                 </div>
                 <div>
-                  <div className="text-lg font-bold text-slate-400 tabular-nums">{fmt(ghostScore)}</div>
-                  <div className="text-[11px] text-slate-400">Manual Ops Inc.</div>
+                  <div className="font-crt text-xl text-[#6b6b7a] tabular-nums">{fmt(ghostScore)}</div>
+                  <div className="font-crt text-base text-[#6b6b7a]">Manual Ops Inc.</div>
                 </div>
               </div>
-              <p className="mt-4 text-sm text-slate-700 font-medium bg-amber-50 border border-amber-200 rounded-xl p-3">
+              <p className="mt-4 font-crt text-xl text-[#ffe600] leading-tight border-2 border-[#ffe600]/50 bg-[#151505] p-3">
                 {summaryLine(summary)}
               </p>
               <motion.button
-                whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={nextFromSummary}
-                className={`mt-6 w-full py-3 rounded-xl font-black text-white ${round >= 4 ? 'bg-red-600' : 'bg-blue-700'}`}
+                className={`btn-pixel mt-6 w-full py-4 text-xs bg-black ${round >= 4 ? 'text-[#ff2d2d] border-[#ff2d2d]' : 'text-[#3bff5e] border-[#3bff5e]'}`}
               >
-                {round >= 4 ? '⚠ Enter the Final Round' : `Brace for Round ${round + 1} →`}
+                {round >= 4 ? '⚠ ENTER THE FINAL ROUND' : `► BRACE FOR ROUND ${round + 1}`}
               </motion.button>
             </motion.div>
           </motion.div>
@@ -1109,32 +1144,32 @@ export default function WhoBrokeTheBusiness() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-black/90 flex items-center justify-center px-6 scanlines"
+            className="fixed inset-0 z-40 bg-black/95 flex items-center justify-center px-6 scanlines-red crt"
           >
-            <motion.div initial={{ scale: 0.85 }} animate={{ scale: 1 }} className="text-center max-w-xl">
-              <motion.div
-                animate={{ opacity: [1, 0.4, 1] }}
-                transition={{ repeat: Infinity, duration: 0.9 }}
-                className="inline-block bg-red-600 text-white text-xs font-black tracking-[0.3em] uppercase px-4 py-1.5 rounded-full"
+            <motion.div initial={{ scale: 0.85 }} animate={{ scale: 1 }} className="text-center max-w-2xl">
+              <div className="inline-block bg-[#ff2d2d] text-black font-pixel text-[10px] px-4 py-2 border-4 border-black blink">
+                FINAL ROUND · THE ENGINE BREAK
+              </div>
+              <h2
+                className="font-pixel text-2xl md:text-4xl text-[#ff2d2d] mt-6 leading-snug"
+                style={{ textShadow: '4px 4px 0 #7a0000, 7px 7px 0 #000' }}
               >
-                Final round · The Engine Break
-              </motion.div>
-              <h2 className="text-4xl md:text-5xl font-black text-red-500 mt-4">{role.waves[4][0]}</h2>
-              <p className="text-slate-300 text-lg mt-3">{role.waves[4][1]}</p>
-              <div className="mt-6 bg-red-950/60 border border-red-800 rounded-2xl p-4">
-                <div className="text-[11px] text-red-400 font-black uppercase tracking-widest">Target to survive the quarter</div>
-                <div className="text-5xl font-black text-amber-400 tabular-nums mt-1">{fmt(bossTarget)}</div>
-                <div className="text-slate-400 text-sm mt-2">
-                  100+ tickets incoming. Manual triage disabled. <span className="text-red-400 font-semibold">No human can triage this.</span>
+                {role.waves[4][0]}
+              </h2>
+              <p className="font-crt text-2xl text-[#f2e8c9] mt-4 leading-tight">{role.waves[4][1]}</p>
+              <div className="mt-6 bg-[#2b0505] border-4 border-[#ff2d2d] shadow-[6px_6px_0_#000] p-5">
+                <div className="font-pixel text-[9px] text-[#ff5555]">TARGET TO SURVIVE THE QUARTER</div>
+                <div className="font-pixel text-3xl text-[#ffe600] tabular-nums mt-3" style={{ textShadow: '3px 3px 0 #7a0000' }}>{fmt(bossTarget)}</div>
+                <div className="font-crt text-xl text-[#8b8ba0] mt-3 leading-tight">
+                  100+ tickets incoming. Manual triage disabled. <span className="text-[#ff5555]">No human can triage this.</span>
                 </div>
               </div>
               <motion.button
-                whileHover={{ scale: 1.06 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={startBossCrisis}
-                className="mt-6 bg-red-600 text-white font-black px-10 py-3 rounded-xl uppercase tracking-widest"
+                className="btn-pixel mt-6 bg-black text-[#ff2d2d] border-[#ff2d2d] text-sm px-10 py-4"
               >
-                Face it
+                ► FACE IT
               </motion.button>
             </motion.div>
           </motion.div>
@@ -1143,8 +1178,8 @@ export default function WhoBrokeTheBusiness() {
 
       {/* ================= VICTORY ================= */}
       {phase === 'victory' && role && (
-        <div className="max-w-3xl mx-auto px-6 py-12 relative z-10">
-          {/* confetti */}
+        <div className="max-w-3xl mx-auto px-6 py-10 relative z-10">
+          {/* pixel confetti */}
           <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
             {Array.from({ length: 50 }).map((_, i) => (
               <motion.div
@@ -1152,20 +1187,25 @@ export default function WhoBrokeTheBusiness() {
                 initial={{ y: '-10vh', x: `${(i * 71) % 100}vw`, rotate: 0, opacity: 1 }}
                 animate={{ y: '110vh', rotate: (i % 2 ? 1 : -1) * 720, opacity: [1, 1, 0.6] }}
                 transition={{ duration: 2.6 + (i % 10) * 0.25, delay: (i % 7) * 0.12, ease: 'easeIn' }}
-                className="absolute w-2.5 h-2.5 rounded-sm"
-                style={{ backgroundColor: ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'][i % 5] }}
+                className="absolute w-2.5 h-2.5"
+                style={{ backgroundColor: ['#2ee6ff', '#ffe600', '#3bff5e', '#ff2e9a', '#f2e8c9'][i % 5] }}
               />
             ))}
           </div>
 
           <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} className="text-center">
             <div className="text-6xl">{role.emoji}</div>
-            <div className="text-[11px] font-black uppercase tracking-[0.3em] text-emerald-600 mt-3">Quarter survived</div>
-            <h2 className="text-4xl md:text-5xl font-black text-slate-900 mt-2">The business runs itself now.</h2>
-            <p className="text-slate-600 mt-3 text-lg">{role.victory}</p>
+            <div className="font-pixel text-[10px] text-[#3bff5e] mt-4 blink">★ QUARTER SURVIVED ★</div>
+            <h2
+              className="font-pixel text-xl md:text-3xl text-[#f2e8c9] mt-4 leading-snug"
+              style={{ textShadow: '4px 4px 0 #3bff5e, 7px 7px 0 #000' }}
+            >
+              THE BUSINESS RUNS ITSELF NOW.
+            </h2>
+            <p className="font-crt text-2xl text-[#2ee6ff] mt-4 leading-tight">{role.victory}</p>
 
-            <div className="mt-8 bg-white rounded-3xl shadow-xl border border-slate-200 p-8">
-              <div className="font-mono text-lg text-slate-800">
+            <div className="mt-8 bg-black border-4 border-[#3bff5e] shadow-[8px_8px_0_#000] p-7">
+              <div className="font-crt text-2xl text-[#2ee6ff]">
                 ({role.base}
                 {deck.filter((c) => c.type === 'additive' || c.type === 'trigger').map((c, i) => (
                   <span key={i}> + {c.value}</span>
@@ -1175,34 +1215,34 @@ export default function WhoBrokeTheBusiness() {
                   <span key={i}> × {c.value.toFixed(1)}</span>
                 ))}
                 {' = '}
-                <span className="font-black text-emerald-600">{fmt(fullEngine.total)}</span>
+                <span className="text-[#3bff5e] font-bold">{fmt(fullEngine.total)}</span>
               </div>
               <div className="grid grid-cols-2 gap-6 mt-6">
                 <div>
-                  <div className="text-4xl font-black text-blue-800 tabular-nums">{fmt(finalScore)}</div>
-                  <div className="text-xs text-slate-500 font-semibold mt-1">You, with the stack</div>
+                  <div className="font-pixel text-2xl text-[#3bff5e] tabular-nums" style={{ textShadow: '2px 2px 0 #000' }}>{fmt(finalScore)}</div>
+                  <div className="font-crt text-lg text-[#8b8ba0] mt-2">You, with the stack</div>
                 </div>
                 <div>
-                  <div className="text-4xl font-black text-slate-300 tabular-nums line-through">{fmt(ghostScore)}</div>
-                  <div className="text-xs text-slate-400 font-semibold mt-1">Manual Ops Inc. (did not survive Q3)</div>
+                  <div className="font-pixel text-2xl text-[#6b6b7a] tabular-nums line-through">{fmt(ghostScore)}</div>
+                  <div className="font-crt text-lg text-[#6b6b7a] mt-2">Manual Ops Inc. (did not survive Q3)</div>
                 </div>
               </div>
-              <p className="mt-6 text-slate-800 font-bold text-lg">
+              <p className="mt-6 font-crt text-2xl text-[#f2e8c9] leading-tight">
                 You: {fmt(finalScore)}. Manual: {fmt(ghostScore)}. That's{' '}
-                <span className="text-emerald-600 text-2xl font-black">{ghostMultiple}×</span> — and the chaos never slowed down.
+                <span className="font-pixel text-xl text-[#ffe600]" style={{ textShadow: '2px 2px 0 #000' }}>{ghostMultiple}×</span> — and the chaos
+                never slowed down.
               </p>
-              <div className="mt-4 text-sm text-slate-500">
+              <div className="mt-4 font-crt text-lg text-[#8b8ba0] leading-tight">
                 Five rounds. {12 + 20 + 32 + 50 + ROUND_CFG[5].tickets}+ chaos tickets. Your agents handled the flood while you drafted the system that beat it.
               </div>
             </div>
 
             <motion.button
-              whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.96 }}
               onClick={replay}
-              className="mt-8 bg-blue-700 text-white font-black px-10 py-4 rounded-2xl text-lg shadow-lg"
+              className="btn-pixel mt-8 bg-black text-[#2ee6ff] border-[#2ee6ff] text-xs px-10 py-5"
             >
-              ↻ Run it back as a different exec
+              ↻ RUN IT BACK AS A DIFFERENT EXEC
             </motion.button>
           </motion.div>
         </div>
