@@ -413,6 +413,14 @@ const ROLES = [
 
 const AMBIENT_NOISE = ['URGENT', 'RE: RE: RE:', 'FYI', 'per my last email', 'quick sync?', 'EOD??', 'circling back', 'as discussed', '@here', 'ping'];
 
+/* Role headshots: drop ceo.png / cfo.png / cto.png / cmo.png / cro.png / cs.png
+   into src/avatars/ and they're wired in automatically (emoji fallback otherwise). */
+const AVATARS = Object.fromEntries(
+  Object.entries(import.meta.glob('./avatars/*.png', { eager: true, import: 'default', query: '?url' }))
+    .map(([p, url]) => [p.split('/').pop().replace('.png', ''), url])
+);
+ROLES.forEach((r) => { r.img = AVATARS[r.key] || null; });
+
 /* ---------- scoring engine (status-aware) ---------- */
 function effAdd(c) {
   if (c.type !== 'additive' && c.type !== 'trigger') return 0;
