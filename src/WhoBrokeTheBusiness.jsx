@@ -1,5 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import menuArt from './art/menu.jpg';
+import agentBgArt from './art/agent-bg.jpg';
+import robotArt from './art/robot.png';
 
 /* ============================================================
    WHO BROKE THE BUSINESS?
@@ -1058,73 +1061,42 @@ export default function WhoBrokeTheBusiness() {
         </div>
       )}
 
-      {/* ================= TITLE / COVER ================= */}
+      {/* ================= TITLE / COVER (supplied art + click hotspots) ================= */}
       {phase === 'title' && (
-        <div className="min-h-screen flex flex-col items-center justify-center relative z-10 px-6">
-          {/* office-chaos dressing: scattered error signs + flying paper */}
-          <div className="pointer-events-none absolute inset-0 overflow-hidden select-none" aria-hidden>
-            {['ERROR', 'BUG', 'ERROR', 'WARNING', 'ERROR', 'BUG'].map((w, i) => (
-              <motion.span
-                key={'e' + i}
-                animate={{ opacity: [1, 0.4, 1] }}
-                transition={{ repeat: Infinity, duration: 1.2 + (i % 3) * 0.4, delay: i * 0.3 }}
-                className={`absolute font-pixel text-[9px] px-2 py-1 border-2 ${i % 2 ? 'bg-black text-[#ff2d2d] border-[#ff2d2d]' : 'bg-[#ff2d2d] text-black border-black'}`}
-                style={{ top: `${8 + ((i * 31) % 70)}%`, left: i % 2 ? `${4 + ((i * 13) % 18)}%` : `${74 + ((i * 7) % 20)}%`, transform: `rotate(${((i * 17) % 24) - 12}deg)` }}
-              >
-                {i % 2 ? '⚠ ' : ''}{w}
-              </motion.span>
-            ))}
-            {Array.from({ length: 10 }).map((_, i) => (
-              <motion.span
-                key={'p' + i}
-                initial={{ y: '-8vh' }}
-                animate={{ y: '108vh', rotate: (i % 2 ? 1 : -1) * 360 }}
-                transition={{ repeat: Infinity, duration: 7 + (i % 5) * 2, delay: i * 1.1, ease: 'linear' }}
-                className="absolute text-xl opacity-40"
-                style={{ left: `${(i * 97) % 100}%` }}
-              >
-                📄
-              </motion.span>
-            ))}
-            {/* checkered floor strip */}
-            <div
-              className="absolute bottom-0 left-0 right-0 h-16 opacity-60"
-              style={{ background: 'repeating-conic-gradient(#1e1246 0% 25%, #2b1a5e 0% 50%) 0 0 / 32px 32px' }}
+        <div className="min-h-screen flex items-center justify-center relative z-10 bg-[#0d0733] px-2">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6 }}
+            className="relative w-full max-w-[1200px]"
+            style={{ aspectRatio: '2752 / 1536' }}
+          >
+            <img
+              src={menuArt}
+              alt="Who Broke the Business? title screen"
+              className="absolute inset-0 w-full h-full object-contain select-none"
+              draggable={false}
             />
-          </div>
-
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
-            <p className="font-pixel text-[10px] text-[#ff2e9a] tracking-widest">★ A BUSINESS SIMULATOR IN 5 ROUNDS ★</p>
-            <h1
-              className="font-pixel text-4xl md:text-6xl text-[#f2e8c9] mt-6 leading-snug"
-              style={{ textShadow: '5px 5px 0 #ff2e9a, 10px 10px 0 #000' }}
-            >
-              WHO BROKE THE{' '}
-              <br />
-              BUSINESS?
-            </h1>
-            <div className="mt-10 flex flex-col items-center gap-4">
-              <motion.button
-                animate={{ scale: [1, 1.04, 1] }}
-                transition={{ repeat: Infinity, duration: 1.4 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setPhase('roleSelect')}
-                className="btn-pixel bg-black text-[#3bff5e] border-[#2ee6ff] text-base px-10 py-4"
-              >
-                ► START GAME
-              </motion.button>
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setHowTo(true)}
-                className="btn-pixel bg-black text-[#f2e8c9] border-[#2ee6ff] text-[11px] px-8 py-3"
-              >
-                HOW TO PLAY
-              </motion.button>
-            </div>
+            {/* clickable hotspots over the drawn buttons */}
+            <motion.button
+              aria-label="Start game"
+              onClick={() => setPhase('roleSelect')}
+              animate={{ boxShadow: ['0 0 0px rgba(59,255,94,0)', '0 0 26px rgba(59,255,94,0.75)', '0 0 0px rgba(59,255,94,0)'] }}
+              transition={{ repeat: Infinity, duration: 1.5 }}
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              className="absolute cursor-pointer border-2 border-transparent hover:border-[#3bff5e]"
+              style={{ left: '36.5%', top: '54.5%', width: '27%', height: '12%', background: 'transparent' }}
+            />
+            <motion.button
+              aria-label="How to play"
+              onClick={() => setHowTo(true)}
+              whileHover={{ scale: 1.04, boxShadow: '0 0 22px rgba(46,230,255,0.7)' }}
+              whileTap={{ scale: 0.96 }}
+              className="absolute cursor-pointer border-2 border-transparent hover:border-[#2ee6ff]"
+              style={{ left: '36.5%', top: '68%', width: '27%', height: '10.5%', background: 'transparent' }}
+            />
           </motion.div>
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black border-2 border-[#f2e8c9] px-5 py-1.5">
-            <p className="font-crt text-xl text-[#f2e8c9] whitespace-nowrap">The business is already on fire.</p>
-          </div>
 
           {/* HOW TO PLAY overlay */}
           <AnimatePresence>
@@ -1191,8 +1163,8 @@ export default function WhoBrokeTheBusiness() {
                 onClick={() => pickRole(r)}
                 className="group bg-black border-4 border-[#2ee6ff] hover:border-[#ff2e9a] shadow-[6px_6px_0_#000] hover:shadow-[8px_8px_0_rgba(255,46,154,0.6)] p-5 text-left"
               >
-                <div className="flex justify-center bg-[#101024] border-2 border-[#2ee6ff]/40 py-4">
-                  <Avatar r={r} size={56} />
+                <div className="flex justify-center bg-[#101024] border-2 border-[#2ee6ff]/40 py-3">
+                  <Avatar r={r} size={88} />
                 </div>
                 <div className="mt-3 font-pixel text-[11px] text-[#2ee6ff] leading-relaxed">{r.name}</div>
                 <div className="font-crt text-xl text-[#f2e8c9] mt-1 leading-tight">{r.tagline}</div>
@@ -1562,9 +1534,16 @@ export default function WhoBrokeTheBusiness() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-black/90 flex items-center justify-center px-4 overflow-y-auto py-6"
+            className="fixed inset-0 z-40 flex items-center justify-center px-4 overflow-y-auto py-6"
           >
-            <div className="max-w-4xl w-full text-center">
+            {/* supplied agent art as the backdrop, dimmed so the cards read */}
+            <div
+              className="absolute inset-0"
+              style={{ backgroundImage: `url(${agentBgArt})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+              aria-hidden
+            />
+            <div className="absolute inset-0 bg-black/85" aria-hidden />
+            <div className="max-w-4xl w-full text-center relative">
               {/* AGENTFORCE UNLOCKED neon header */}
               <motion.div
                 initial={{ scale: 0.7, opacity: 0 }}
@@ -1573,17 +1552,22 @@ export default function WhoBrokeTheBusiness() {
                 className="inline-block bg-[#031a12] border-4 border-[#2ee6ff] px-8 py-4"
                 style={{ boxShadow: '0 0 34px rgba(46,230,255,0.55), 0 0 70px rgba(59,255,94,0.25), 4px 4px 0 #000' }}
               >
-                <motion.h2
-                  animate={{ textShadow: ['0 0 8px #2ee6ff', '0 0 18px #3bff5e', '0 0 8px #2ee6ff'] }}
-                  transition={{ repeat: Infinity, duration: 1.6 }}
-                  className="font-pixel text-xl md:text-3xl leading-snug"
-                  style={{ color: '#7dfcd0' }}
-                >
-                  AGENTFORCE{' '}
-                  <br />
-                  UNLOCKED
-                </motion.h2>
-                <div className="font-crt text-xl text-[#2ee6ff] mt-2">🤖 {round === 1 ? 'Your first agent is available.' : `Deployment slot ${round} open.`}</div>
+                <div className="flex items-center gap-4">
+                  <img src={robotArt} alt="" className="h-16 border-2 border-[#2ee6ff]/40 select-none" draggable={false} />
+                  <div className="text-left">
+                    <motion.h2
+                      animate={{ textShadow: ['0 0 8px #2ee6ff', '0 0 18px #3bff5e', '0 0 8px #2ee6ff'] }}
+                      transition={{ repeat: Infinity, duration: 1.6 }}
+                      className="font-pixel text-xl md:text-3xl leading-snug"
+                      style={{ color: '#7dfcd0' }}
+                    >
+                      AGENTFORCE{' '}
+                      <br />
+                      UNLOCKED
+                    </motion.h2>
+                    <div className="font-crt text-xl text-[#2ee6ff] mt-1">{round === 1 ? 'Your first agent is available.' : `Deployment slot ${round} open.`}</div>
+                  </div>
+                </div>
               </motion.div>
               <p className="font-crt text-xl text-[#8b8ba0] mt-4">
                 {round === 1
