@@ -12,9 +12,6 @@ history, mechanics math, and known design problems — **read the playback doc b
 mechanics**; it records why previous mechanic iterations (real-time queue, stability meters, quotas)
 were removed.
 
-**Branch layout:** all code lives on `claude/who-broke-business-game-1l3hpu`; `main` contains only
-the `Game Art/` source assets. Do not diff or merge against `main` expecting code history there.
-
 ## Commands
 
 ```bash
