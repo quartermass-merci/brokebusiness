@@ -60,6 +60,52 @@ const inLane = (card, tk) => {
   return false; // guardrails acts at spawn, never fires from the dock
 };
 
+/* Memoized: the board only re-renders when the ticket array identity or the
+   held ticket changes, not on every 10Hz meter/day tick. At 70 spawns a
+   quarter that difference is the frame budget. */
+const TicketBoard = React.memo(function TicketBoard({ tickets, holdId, holdStart, holdEnd }) {
+  return (
+    <div className="flex flex-wrap gap-3 items-start content-start">
+      <AnimatePresence>
+        {tickets.map((tk) => (
+          <motion.button
+            key={tk.id}
+            initial={{ scale: 0, opacity: 0, rotate: tk.jx }}
+            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+            exit={tk.fate === 'agent'
+              ? { y: 190, scale: 0.25, opacity: 0, transition: { duration: 0.38 } }
+              : tk.fate === 'you'
+                ? { scale: 0, opacity: 0, transition: { duration: 0.22 } }
+                : { opacity: 0, scale: 0.9, transition: { duration: 0.3 } }}
+            data-testid="ticket"
+            data-headline={tk.headline}
+            data-live={!tk.fate && !tk.blocked ? '1' : undefined}
+            onPointerDown={(e) => { e.preventDefault(); if (!tk.blocked) holdStart(tk.id); }}
+            onPointerUp={holdEnd}
+            onPointerLeave={() => { if (holdId === tk.id) holdEnd(); }}
+            onContextMenu={(e) => e.preventDefault()}
+            className={`relative text-left px-3 py-2 border-2 bg-[#0d0d1f] overflow-hidden ${holdId === tk.id ? 'holding' : ''} ${
+              tk.blocked ? 'opacity-70 border-[#8b8ba0]' : 'cursor-pointer'}`}
+            style={{
+              borderColor: tk.blocked ? '#8b8ba0' : THEMES[tk.theme].color,
+              boxShadow: '3px 3px 0 #000',
+              maxWidth: '240px',
+            }}>
+            <span className="txt-ticket text-[#f2e8c9] block pr-1">
+              {tk.headline}
+              {tk.n > 1 && <span className="text-[#ff5555] h-pixel text-[9px]"> ×{tk.n}</span>}
+            </span>
+            {tk.blocked && (
+              <span className="h-pixel text-[7px] text-[#3bff5e] block mt-1">🚧 BLOCKED · GUARDRAILS</span>
+            )}
+            {!tk.blocked && <span className="holdbar" />}
+          </motion.button>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+});
+
 const deathLine = (def, spawnCount) => {
   if (!def) return 'the year-end audit';
   if (!def.death.includes('{n}')) return def.death;
@@ -147,6 +193,9 @@ export default function WhoBrokeTheBusiness() {
     setDrafted([]); draftedRef.current = [];
     setReceipts([]); setEndInfo(null); setUi(null); setCopied(false);
     simRef.current = newSim(r, m);
+    // rehearsal aid: with the demo seed active, expose sim state read-only
+    // so a scripted run can assert meters and handled counts
+    if (IS_DEMO) window.__wbtbSim = simRef;
     setQuarterIdx(0);
     beginQuarter(0);
   };
@@ -204,12 +253,13 @@ export default function WhoBrokeTheBusiness() {
         const blocked = hasGuard && def.theme === 'aiMishap';
         const dupe = hasD360 && !blocked &&
           s.tickets.find((tk) => !tk.fate && !tk.blocked && tk.headline === def.headline);
+        s.boardDirty = true;
         if (dupe) { dupe.n = count; dupe.mergedAt = s.simTime; dupe.absorbs += 1; }
         else {
           s.tickets.push({
             id: s.nextId++, ...def, n: count, absorbs: 1,
             spawnAt: s.simTime, blocked, fate: null, fadeAt: 0,
-            jx: (s.rng() * 8 - 4), // scatter jitter
+            jx: ((s.nextId * 53) % 9) - 4, // scatter jitter off the rng stream
           });
           if (blocked) {
             s.tickets[s.tickets.length - 1].fadeAt = s.simTime + 1500;
@@ -222,17 +272,22 @@ export default function WhoBrokeTheBusiness() {
         if (tk.blocked && !tk.fate && s.simTime >= tk.fadeAt) {
           tk.fate = 'blocked'; tk.fadeAt = s.simTime + 120;
           s.handledAgents += 1;
+          s.boardDirty = true;
         }
       });
 
-      /* the player's hold */
+      /* the player's hold — judged on wall clock, not sim time: the hold bar
+         the player watches runs on wall clock, and sim time falls behind it
+         whenever the main thread is busy. The two must agree or holds
+         released at a full bar silently fail. */
       if (s.holding) {
         const tk = s.tickets.find((x) => x.id === s.holding.id && !x.fate && !x.blocked);
         if (!tk) s.holding = null;
-        else if (s.simTime - s.holding.at >= T.HANDLE_HOLD_MS) {
+        else if (now - s.holding.atWall >= T.HANDLE_HOLD_MS) {
           tk.fate = 'you'; tk.fadeAt = s.simTime + 120;
           s.handledYou += tk.absorbs;
           s.holding = null;
+          s.boardDirty = true;
           setHoldId(null);
         }
       }
@@ -257,9 +312,12 @@ export default function WhoBrokeTheBusiness() {
         if (!target) return;
         target.fate = 'agent'; target.fadeAt = s.simTime + 120;
         s.handledAgents += target.absorbs;
+        s.boardDirty = true;
         s.agentTimers[c.key] = s.simTime + interval;
         s.lastFired = { key: c.key, at: s.simTime };
-        const secs = (0.3 + s.rng() * 1.3).toFixed(1);
+        // derived from the ticket id, not the rng stream: play input must
+        // never shift the demo seed's spawn schedule (?demo=1 replays exactly)
+        const secs = (0.3 + ((target.id * 37) % 14) / 10).toFixed(1);
         setReceipts((rs) => [...rs.slice(-1), {
           id: target.id, at: s.simTime,
           text: `HANDLED BY ${c.short} · ${secs}s`,
@@ -282,7 +340,9 @@ export default function WhoBrokeTheBusiness() {
       });
 
       /* sweep resolved tickets (AnimatePresence needs one render with fate set) */
+      const preSweep = s.tickets.length;
       s.tickets = s.tickets.filter((tk) => !tk.fate || s.simTime < tk.fadeAt + 40);
+      if (s.tickets.length !== preSweep) s.boardDirty = true;
 
       /* death */
       const m = s.meters;
@@ -298,20 +358,26 @@ export default function WhoBrokeTheBusiness() {
       if (s.elapsed >= T.QUARTER_SECONDS * 1000) {
         clearInterval(int);
         s.holding = null; setHoldId(null);
-        if (s.quarter >= 3) { setPhase('auditIntro'); return; }
-        if (s.mode === 'manual') { setPhase('noDraft'); return; }
+        if (s.mode === 'manual') { setPhase(s.quarter >= 3 ? 'auditIntro' : 'noDraft'); return; }
+        // a draft follows every quarter, including Q4: that final pick is
+        // what lets a draft-every-round run reach the audit with 4 agents
+
         openDraft();
         return;
       }
 
+      if (s.boardDirty || !s.uiTickets) { s.uiTickets = s.tickets.slice(); s.boardDirty = false; }
       setUi({
         day: dayNow(s),
         meters: { ...s.meters },
-        tickets: s.tickets.slice(),
+        tickets: s.uiTickets,
         lastFired: s.lastFired || null,
         left: Math.max(0, T.QUARTER_SECONDS - s.elapsed / 1000),
       });
-      setReceipts((rs) => rs.filter((rc) => s.simTime - rc.at < 1900));
+      setReceipts((rs) => {
+        const live = rs.filter((rc) => s.simTime - rc.at < 1900);
+        return live.length === rs.length ? rs : live;
+      });
     }, 100);
 
     return () => clearInterval(int);
@@ -322,19 +388,29 @@ export default function WhoBrokeTheBusiness() {
 
   /* ---------------- hold to handle ---------------- */
 
-  const holdStart = (id) => {
+  const holdStart = useCallback((id) => {
     const s = simRef.current;
-    if (!s || phase !== 'quarter') return;
+    if (!s || s.dead) return;
     const tk = s.tickets.find((x) => x.id === id && !x.fate && !x.blocked);
     if (!tk) return;
-    s.holding = { id, at: s.simTime };
+    s.holding = { id, at: s.simTime, atWall: performance.now() };
     setHoldId(id);
-  };
-  const holdEnd = () => {
+  }, []);
+  const holdEnd = useCallback(() => {
     const s = simRef.current;
+    // releasing at a full bar always counts, even if no tick landed in the
+    // window between the bar filling and the release
+    if (s && s.holding && performance.now() - s.holding.atWall >= T.HANDLE_HOLD_MS) {
+      const tk = s.tickets.find((x) => x.id === s.holding.id && !x.fate && !x.blocked);
+      if (tk) {
+        tk.fate = 'you'; tk.fadeAt = s.simTime + 120;
+        s.handledYou += tk.absorbs;
+        s.boardDirty = true;
+      }
+    }
     if (s) s.holding = null;
     setHoldId(null);
-  };
+  }, []);
 
   /* ---------------- the draft ---------------- */
 
@@ -747,44 +823,7 @@ export default function WhoBrokeTheBusiness() {
 
           {/* ticket board */}
           <div className="mt-4 min-h-[46vh] pb-28">
-            <div className="flex flex-wrap gap-3 items-start content-start">
-              <AnimatePresence>
-                {ui.tickets.map((tk) => (
-                  <motion.button
-                    key={tk.id}
-                    layout
-                    initial={{ scale: 0, opacity: 0, rotate: tk.jx }}
-                    animate={{ scale: 1, opacity: 1, rotate: 0 }}
-                    exit={tk.fate === 'agent'
-                      ? { y: 190, scale: 0.25, opacity: 0, transition: { duration: 0.38 } }
-                      : tk.fate === 'you'
-                        ? { scale: 0, opacity: 0, transition: { duration: 0.22 } }
-                        : { opacity: 0, scale: 0.9, transition: { duration: 0.3 } }}
-                    data-testid="ticket"
-                    data-headline={tk.headline}
-                    onPointerDown={(e) => { e.preventDefault(); if (!tk.blocked) holdStart(tk.id); }}
-                    onPointerUp={holdEnd}
-                    onPointerLeave={() => { if (holdId === tk.id) holdEnd(); }}
-                    onContextMenu={(e) => e.preventDefault()}
-                    className={`relative text-left px-3 py-2 border-2 bg-[#0d0d1f] overflow-hidden ${holdId === tk.id ? 'holding' : ''} ${
-                      tk.blocked ? 'opacity-70 border-[#8b8ba0]' : 'cursor-pointer'}`}
-                    style={{
-                      borderColor: tk.blocked ? '#8b8ba0' : THEMES[tk.theme].color,
-                      boxShadow: `3px 3px 0 #000`,
-                      maxWidth: '240px',
-                    }}>
-                    <span className="txt-ticket text-[#f2e8c9] block pr-1">
-                      {tk.headline}
-                      {tk.n > 1 && <span className="text-[#ff5555] h-pixel text-[9px]"> ×{tk.n}</span>}
-                    </span>
-                    {tk.blocked && (
-                      <span className="h-pixel text-[7px] text-[#3bff5e] block mt-1">🚧 BLOCKED · GUARDRAILS</span>
-                    )}
-                    {!tk.blocked && <span className="holdbar" />}
-                  </motion.button>
-                ))}
-              </AnimatePresence>
-            </div>
+            <TicketBoard tickets={ui.tickets} holdId={holdId} holdStart={holdStart} holdEnd={holdEnd} />
           </div>
 
           {/* receipts */}

@@ -1108,3 +1108,81 @@ Not everything needs rebuilding:
 Tuning knobs, all in `src/gameData.js`: `CHAOS_VOLUME` (perceived scale), `AGENT_SHARE` (how
 fast agents take over), `CHOICE_POINTS` (how much human judgment is worth), `POINTS_PER_PROBLEM`
 (the exchange rate that produces the headline multiple).
+
+---
+
+## 10. v7 — THE ROGUELITE CUT (2026-07-29)
+
+The v7 change order superseded the v6 demo cut and rebuilt the game around the original
+brief's thesis, with one structural rule added: **the two pacings never share a screen.**
+Quarters are speed with zero reading (six-word headlines only); the draft is an untimed
+decision between quarters. Per-ticket multiple choice was deleted from the game.
+
+### What was deleted
+The 3-option quiz, outcome screens, BUT boxes, quality grading, `CHOICE_POINTS`, the 22×
+multiple, the survival target, and points as a score. None of these appear anywhere on
+screen. The 90 bespoke options and 30 outcome beats survive only in git history.
+
+### What was kept
+All 30 challenge headlines (now the ticket pool, tagged with their slot themes), the
+power-ups (condensed into a 10-card draft pool), all supplied art, the title screen and
+role select, the SIMULATE cascade, and the copy voice.
+
+### The five systems (ceiling honored)
+1. **Fiscal year clock** — 4 quarters × 40s = 90 days each; a DAY counter ticks at 2.25
+   days/second. Death or victory stamps it: "YOUR BUSINESS SURVIVED {N} DAYS."
+2. **Tickets** — spawn totals 18/30/48/70 per quarter, pacing accelerating inside each
+   quarter (`t = T·(i/n)^0.62`), weighted 45% toward the player's seat. Hold 1.2s to clear
+   one by hand (~20/quarter human ceiling — intentional). After a 4s grace, each unhandled
+   ticket deals 1 meter point per 2s to its theme's meter. Repeats show an escalation
+   counter (`×N`).
+3. **Meters** — PRODUCTIVITY 80 (drains from signature + disconnected), CUSTOMER
+   HAPPINESS 80 (drains from messy-data + AI-mishap), TECHNICAL DEBT 25 (rises from
+   tech-debt, death at 100), AGENTIC SEASONING n/10 display-only. Nothing restores
+   between quarters.
+4. **The draft** — after each quarter, three cards from the 10-card pool (6 role
+   flagships + Data 360 + Cross-Cloud Orchestrator + Guardrails + Flow), pick one,
+   untimed, no prices, no grading. Invented agent names carry
+   `CUSTOM AGENT · BUILT ON AGENTFORCE`.
+5. **Interception + the audit** — each drafted agent fires every 2.2s at its lane;
+   tickets fly into the dock with a receipt toast ("HANDLED BY DATA 360 · 0.8s", never
+   more than two deep). Data 360 merges duplicates and speeds every other agent ×1.5;
+   Guardrails pre-blocks AI mishaps at spawn; Flow halves debt rise. The year-end audit
+   is 4,000 problems, manual disabled; the cascade clears with ≥3 drafted agents and
+   overwhelms (loss at day ~340) with fewer. That threshold is never displayed.
+
+### Deviations from the change-order spec, and why
+- **`AGENT_HANDLE_MS` 2500 → 2200 and an idle fallback** (idle agents grab off-lane
+  tickets at 40% speed; the Orchestrator raises that to half speed and makes it a rule
+  you can read). Without these, acceptance check 2 failed: a player who drafted a narrow
+  agent every round could still die in Q4. The constants were labeled "starting values,
+  adjust to hit the checks," so they were adjusted.
+- **Offers never contain more than one off-seat role flagship, and none once you hold
+  two.** A stack of four narrow off-seat agents was the one reachable build that died
+  with a full draft record. It is now unreachable instead of unlosable — bad builds
+  still end the year gasping (happiness in single digits), which is the roguelite
+  texture the order asked for.
+- **Manual Ops multipliers** landed at spawn ×2.4, damage ×3.2 to hit the day-40-to-90
+  death window (headless sim: deaths at day 80–88 across seeds/roles).
+- **Receipt durations and card jitter come off the ticket id, not the RNG stream** —
+  otherwise how much the player clicked in Q1 shifted Q2's spawn order and broke
+  `?demo=1` reproducibility.
+- **Holds are judged on wall clock, not sim time.** The hold bar the player watches runs
+  on wall clock; sim time falls behind it whenever the main thread is busy (each tick's
+  `dt` clamps at 250ms). Judged on sim time, a hold released at a visibly full bar
+  silently failed — headless playthroughs died at day 299 with the player clearing
+  almost nothing. The two clocks must agree on the one interaction the player performs.
+
+### Tuning verification (headless sim, perfect-player model)
+| Scenario | Result |
+|---|---|
+| Manual Ops, hands on | dies day 80–88, always in Q1 |
+| Normal, zero drafts | dies ~day 241–244 (Q3) |
+| One draft after Q1, then nothing | dies day 315–344 (Q4, before the audit) |
+| Draft every round (any reachable build) | survives to day 360; worst build reaches the audit at 1 happiness |
+
+### Known open items
+- The end-card COPY CARD button uses the async clipboard API; inside restrictive iframes
+  it fails silently (the card is still on screen to screenshot).
+- When the tab is hidden, the browser suspends timers and the quarter effectively pauses;
+  `dt` is clamped to 250ms per tick so nothing explodes on return. Treat it as a feature.
