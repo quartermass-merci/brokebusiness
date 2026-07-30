@@ -727,10 +727,11 @@ export default function WhoBrokeTheBusiness() {
               whileHover={{ scale: 1.04, boxShadow: '0 0 22px rgba(46,230,255,0.7)' }} whileTap={{ scale: 0.96 }}
               className="absolute cursor-pointer border-2 border-transparent hover:border-[#2ee6ff] bg-transparent"
               style={{ left: '36.5%', top: '68%', width: '27%', height: '10.5%' }} />
-            {/* centered by the wrapper, not a transform: .btn-pixel's hover/active
-                transforms replace the transform property, so a translate-centered
-                button jumps sideways the moment the cursor reaches it */}
-            <div className="absolute inset-x-0 bottom-[4%] flex justify-center pointer-events-none">
+            {/* third menu entry, below the drawn HOW TO PLAY button and above the
+                art's bottom caption band. Centered by the wrapper, not a transform:
+                .btn-pixel's hover/active transforms replace the transform property,
+                so a translate-centered button jumps sideways under the cursor */}
+            <div className="absolute inset-x-0 flex justify-center pointer-events-none" style={{ top: '80.5%' }}>
               <button data-testid="manual-ops" onClick={() => { setMode('manual'); setPhase('roleSelect'); }}
                 className="btn-pixel pointer-events-auto text-[9px] px-5 py-3 bg-black/85 text-[#ff5555] border-[#ff5555]">
                 MANUAL OPS MODE
