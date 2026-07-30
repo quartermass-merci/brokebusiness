@@ -349,8 +349,8 @@ export default function WhoBrokeTheBusiness() {
       const script = [
         ['data360', flagshipOf(s.roleKey).key, 'guardrails'],
         ['flow', 'orchestrator', 'guardrails'],
-        ['guardrails', 'orchestrator', 'resolve'],
-        ['tier1', 'resolve', 'sentinel'],
+        ['guardrails', 'orchestrator', 'flow'],
+        ['orchestrator', 'tier1', 'resolve'],
       ][Math.min(draftIndex, 3)];
       offer = script.map(cardByKey).filter((c) => !taken.has(c.key));
       remaining.forEach((c) => { if (offer.length < 3 && !offer.includes(c)) offer.push(c); });
@@ -420,7 +420,7 @@ export default function WhoBrokeTheBusiness() {
 
     for (let i = 0; i < actors.length; i++) {
       const c = actors[i];
-      setSimNote(`${c.icon} ${c.short} — clearing ${fmt(perActor)} problems`);
+      setSimNote(`${c.icon} ${c.short} · CLEARING ${fmt(perActor)} PROBLEMS`);
       setFloodCards((cs) => cs.filter((_, ci) => ci % Math.max(2, actors.length + 1) !== i % Math.max(2, actors.length + 1)));
       await sleep(360);
       s.handledAgents += perActor;
@@ -430,8 +430,8 @@ export default function WhoBrokeTheBusiness() {
     for (const c of mults) {
       setAuditStage(2);
       setSimNote(c.kind === 'data360'
-        ? `${c.icon} DATA 360 — ×1.5 ON EVERYTHING. DUPLICATES COLLAPSE.`
-        : `${c.icon} ORCHESTRATOR — EVERY AGENT, EVERY LANE, AT ONCE.`);
+        ? `${c.icon} DATA 360 · DUPLICATES COLLAPSE. EVERY AGENT RUNS 1.5× FASTER.`
+        : `${c.icon} ORCHESTRATOR · EVERY AGENT, EVERY LANE, AT ONCE.`);
       setFloodCards((cs) => cs.filter((_, ci) => ci % 2 === 0));
       doShake('shake-b');
       await sleep(1050);
@@ -446,7 +446,7 @@ export default function WhoBrokeTheBusiness() {
       setSimNote('');
       finishRun('win', null);
     } else {
-      setSimNote(`${fmt(T.BOSS_VOLUME - perActor * actors.length)} PROBLEMS REMAIN. THE AUDIT OVERWHELMS.`);
+      setSimNote(`${fmt(T.BOSS_VOLUME - perActor * actors.length)} PROBLEMS HAVE NO ANSWER.`);
       // the backlog swallows the meters
       let more = 60;
       const int = setInterval(() => {
