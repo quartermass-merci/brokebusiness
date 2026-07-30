@@ -1,26 +1,30 @@
 # Who Broke the Business?
 
-A playable 5-round business simulator: Papers, Please-style chaos escalation × a roguelite
-agent draft × a Balatro-style jackpot finale. Built to make skeptical executives *feel* two
-things in sequence — the compounding chaos of running a business manually, and the exponential
-relief of stacking Agentforce agents.
+**The world's first Agentforce-powered business simulator.** Don't tell business leaders
+what Agentforce can do — let them experience it.
 
-**The arc: drown → deploy → fix the data → dominate.**
+An 8-bit business sim where leaders live the everyday chaos of running a modern company:
+messy customer data, technical debt, disconnected systems, and AI mishaps. Every challenge
+you survive unlocks a practical Agentforce solution — the "agentic seasoning" that turns
+broken processes into measurable outcomes.
 
-- **Every ticket is a decision.** Inspect it, then choose: ROUTINE → handle, TEAM-TAGGED → route,
-  CRITICAL → escalate (or delegate to an agent). Wrong calls make things worse.
-- **Round 1** — pure judgment, no agents. You will not keep up. That's the point.
-- **Round 2** — your first agent comes online *into your data swamp*: it runs at 25% of advertised
-  and creates duplicate records. The draft then offers **Fix the Data** (Data 360 unification) —
-  the readiness step that unlocks advertised performance for every agent.
-- **Rounds 3–4** — every capability integrates for a round before it works (no day-one miracles),
-  then the stack compounds. Each card maps to a real Agentforce feature with an honest effect line.
-- **Round 5** — 100+ tickets flood the board. Manual triage is disabled ("No human can triage this").
-  Press **SIMULATE** and watch your stack fire card by card past an otherwise-impossible target.
+## The loop
 
-Each of the six executive roles has its own mission, metric, ticket mix, and agents. A grey
-"Manual Ops Inc." ghost score tracks what you'd have earned without agents. It flatlines in
-round 5. It does not survive Q3.
+1. **Pick your role.** CEO, CFO, CTO, CMO, CRO, or Head of Customer Service — six seats,
+   each with its own disasters, its own language, and its own agents.
+2. **The chaos begins.** Five specific problems, one at a time, no timer. Your chatbot
+   refunded everyone. Every customer is called Steve. Marketing emailed the wrong list.
+   Read the situation and choose how you'd actually handle it.
+3. **Live with the consequence.** Every choice does something real — and even the best call
+   only buys time. The root cause is still there.
+4. **Unlock Agentforce.** Each challenge unlocks the real capability that fixes that problem
+   for good: Service Agent deflection, Data 360 unification, cross-cloud orchestration,
+   guardrails and observability. It joins your stack and keeps working.
+5. **Survive the flood.** The business scales to 4,000 problems a quarter. Your stack scales
+   with it. You don't — and the final screen shows exactly what that's worth.
+
+A run takes 4–5 minutes. Replaying as another exec is a genuinely different game: all 30
+challenges and all 90 response options are unique.
 
 ## Running it
 
@@ -29,13 +33,13 @@ npm install
 npm run dev
 ```
 
-Then open the printed local URL. A session takes 3–5 minutes.
-
 ## Structure
 
-The whole game is one self-contained React component:
-[`src/WhoBrokeTheBusiness.jsx`](src/WhoBrokeTheBusiness.jsx) — six executive roles, role-specific
-chaos pools and agent cards, the round engine, the scoring formula
-`(base + Σ additive) × Π multipliers`, and the round-5 chain-reaction sequence.
-Styling is Tailwind utility classes (CDN, no build step for CSS) plus Framer Motion for animation.
-All state lives in React memory — no storage, no external assets, emoji only.
+- [`src/gameData.js`](src/gameData.js) — six roles × five challenges, each with three bespoke
+  choices, outcomes, and the Agentforce capability it unlocks.
+- [`src/WhoBrokeTheBusiness.jsx`](src/WhoBrokeTheBusiness.jsx) — the game: title, role select,
+  challenge/outcome/power-up loop, the finale, and the victory screen.
+- `src/art/`, `src/avatars/` — supplied pixel art and the six character headshots.
+
+Styling is compiled Tailwind plus Press Start 2P and VT323 (bundled, no CDN). Framer Motion
+handles animation. All state lives in React memory — no storage, no external requests.
