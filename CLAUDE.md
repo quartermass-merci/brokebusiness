@@ -5,12 +5,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 "Who Broke the Business?" — an Agentforce-powered business simulator styled as an 8-bit game.
-Marketing/demo artifact for executives, not a library: pick an exec role, face five role-specific
-disasters, each choice unlocks a real Agentforce capability, finale shows the agent stack absorbing
-4,000 problems. See `README.md` for the pitch and `docs/GAME-DESIGN-PLAYBACK.md` for the full design
-history, mechanics math, and known design problems — **read the playback doc before changing game
-mechanics**; it records why previous mechanic iterations (real-time queue, stability meters, quotas)
-were removed.
+Marketing/demo artifact for executives, not a library. Current build is the **v7 roguelite cut**:
+pick an exec role, survive four 40-second quarters of real-time ticket floods (click-and-hold
+1.2s to clear one yourself), draft one Agentforce agent between quarters, then face the year-end
+audit: 4,000 problems your stack either answers or doesn't. Losing is normal; either ending
+produces a shareable card with days survived and four meters. `?demo=1` runs a fixed RNG seed
+(`TUNING.DEMO_SEED`) for reproducible runs. See `README.md` for the pitch and
+`docs/GAME-DESIGN-PLAYBACK.md` for design history through v6 — **read it before changing game
+mechanics**, but note v7 deliberately reinstated mechanics v6 removed (real-time queue, meters,
+fail state), returning to the original brief.
 
 ## Commands
 
@@ -24,14 +27,15 @@ npm run preview    # serve dist/ (defaults to port 4173; game is verified agains
 There is no lint or test framework. Verification is done two ways:
 
 - **Content integrity:** `src/gameData.js` is pure ESM data — import it directly in Node to assert
-  content invariants (every role has 5 challenges, every challenge has 3 choices with exactly one
-  `best`, all 90 choice labels unique, power-up fields present):
+  content invariants (6 roles × 5 tickets = 30 in `TICKET_POOL`, each with `headline`/`death`;
+  10 cards in `DRAFT_POOL`, each with `rule` and `capability`; no em dashes in player copy):
   `node --input-type=module -e "import { ROLES } from './src/gameData.js'; ..."`
 - **Playthroughs:** Playwright-core driving Chromium against `npm run preview`. Screens expose
-  `data-testid` hooks for this (`headline`, `choice`, `outcome`, `to-powerup`, `deploy`, `face-it`,
-  `simulate`, `final-score`, `replay`; title-screen buttons via `aria-label="Start game"` /
-  `"How to play"`). Buttons with infinite pulse animations never become "stable" — click with
-  `{ force: true }`.
+  `data-testid` hooks (`ticket` with `data-headline`, `draft-card` with `data-card`, `simulate`,
+  `end-card`, `end-headline`, `end-tail`, `copy-card`, `replay`, `manual-ops`; title-screen buttons
+  via `aria-label="Start game"` / `"How to play"`). Clearing a ticket needs a real pointer-down
+  held ≥1.2s (`HANDLE_HOLD_MS`), not a click. Buttons with infinite pulse animations never become
+  "stable" — click with `{ force: true }`. Use `?demo=1` so runs are deterministic.
 
 ## Hard constraints
 
@@ -48,27 +52,31 @@ There is no lint or test framework. Verification is done two ways:
 
 Two source files carry everything:
 
-- **`src/gameData.js` — all content and tuning, zero logic.** 6 roles × 5 challenges
-  (headline / 3-line brief / 3 bespoke choices with quality + outcome / `lesson` ("BUT…" beat) /
-  power-up mapped to a real Agentforce capability). Challenge slots follow a fixed theme order:
-  signature disaster, messy data (→ Data 360), disconnected systems, technical debt, AI mishap.
-  Tuning knobs at the top: `CHAOS_VOLUME` (per-challenge problem counts), `AGENT_SHARE` (fraction
-  of volume each deployed agent absorbs), `CHOICE_POINTS`, `POINTS_PER_PROBLEM`. Copy and balance
-  changes happen here without touching the component.
+- **`src/gameData.js` — all content and tuning, zero logic.** `TUNING` holds every balance knob
+  (quarter length, spawn counts/acceleration, hold time, damage rates, meter starts, Manual Ops
+  multipliers, `DEMO_SEED`). `ROLES` defines 6 roles × 5 tickets in fixed slot-theme order
+  (signature, messy data, disconnected, tech debt, AI mishap); each ticket has a `headline` and a
+  `death` line (loss-card cause of death, `{n}` filled from spawn count × `per`). `DRAFT_POOL` is
+  the 10 draftable agent cards: 6 role flagships + Data 360, Orchestrator, Guardrails, Flow, each
+  with an intercept `rule` and a real-capability line. Copy and balance changes happen here
+  without touching the component.
 - **`src/WhoBrokeTheBusiness.jsx` — the entire game, one default-export component.** A `phase`
-  string drives a state machine: `title → roleSelect → (challenge → outcome → powerup) ×5 →
-  floodIntro → flood → simulate → victory`. Search `phase ===` to find a screen. Scoring: human
-  choices earn flat points; on each advance the stack absorbs `volume × cumulative AGENT_SHARE`
-  problems at `POINTS_PER_PROBLEM` each — that asymmetry produces the final "you vs Manual Ops
-  Inc." multiple. Game-specific CSS (`.h-pixel`, `.txt-body`, `.btn-pixel`, shake/blink keyframes)
-  lives in an inline `<style>` block inside the component; Tailwind (compiled via PostCSS, no CDN)
-  handles layout.
+  string drives the state machine: `title → roleSelect → (quarterIntro → quarter → draft|noDraft)
+  ×4 → auditIntro → audit → end`. Search `phase ===` to find a screen. The quarter engine runs on
+  a single interval against a mutable sim object in `simRef` (spawn schedule, meters, agent
+  timers, damage log); React state gets per-tick snapshots via `setUi`. Meters kill the run at 0
+  (debt at 100); the audit clears only if the stack has ≥ `BOSS_AGENTS_TO_CLEAR` agents. Lane
+  rules live in `inLane`; Manual Ops mode is the same engine with `MANUAL_OPS` multipliers and no
+  drafts. Game-specific CSS (`.h-pixel`, `.txt-body`, `.btn-pixel`, holdbar/shake keyframes) lives
+  in an inline `<style>` block; Tailwind (compiled via PostCSS, no CDN) handles layout.
 
 ### Art pipeline
 
 - `Game Art/` (repo root) = full-resolution source art, uploaded by the owner. `src/art/` =
-  compressed derivatives used by the build (`menu.jpg` title screen, `agent-bg.jpg` power-up
-  backdrop, `robot.png` mascot crop).
+  compressed derivatives used by the build (`menu.jpg` title screen, `agent-bg.jpg` draft-screen
+  backdrop, `robot.png` mascot crop). `agent-bg.jpg` contains baked-in text ("AGENTFORCE
+  UNLOCKED", "DEPLOY AGENT"); screens that use it must dim it hard enough that its text cannot
+  compete with live UI text.
 - The title screen renders `menu.jpg` full-screen with invisible click hotspots positioned by
   percentage over the buttons *drawn in the artwork* — if the menu art changes, those hotspot
   coordinates in the `title` phase must be re-measured.
@@ -82,3 +90,5 @@ Committed single-theme arcade look: Press Start 2P + VT323, palette of magenta `
 cyan `#2ee6ff`, acid green `#3bff5e`, yellow `#ffe600`, cream `#f2e8c9` on deep indigo `#160b2e`;
 hard 4px borders, hard offset shadows (`shadow-[6px_6px_0_#000]`), no rounded corners. Copy voice:
 specific numbers over adjectives, the player is never the joke, capabilities never overclaim.
+No em dashes anywhere in player-facing copy, and no strict parallel triplets: two items, or a
+third that breaks the rhythm with something concrete (the beeping box, Dave, the fax machine).
