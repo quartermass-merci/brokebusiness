@@ -1,615 +1,211 @@
 /* ============================================================
-   WHO BROKE THE BUSINESS? — game data
+   WHO BROKE THE BUSINESS? — game data (v7 roguelite cut)
 
-   One loop: a specific disaster → three choices written for THAT
-   disaster → what actually happened → the real Agentforce
-   capability that fixes it for good.
+   One loop: tickets flood in real time → you clear what one
+   human can → between quarters you draft one agent → your
+   stack intercepts the rest → the year-end audit pays it off.
+
+   Zero logic in this file. All content and tuning lives here.
    ============================================================ */
 
-/* problems arriving per quarter as the business scales */
-export const CHAOS_VOLUME = [12, 40, 120, 380, 1200];
-/* share of the quarter's volume each deployed agent absorbs */
-export const AGENT_SHARE = [0.25, 0.2, 0.2, 0.2, 0.15];
-/* humans don't scale: a good call is worth the same every time */
-export const CHOICE_POINTS = { best: 500, ok: 280, bad: 80 };
-export const POINTS_PER_PROBLEM = 10;
+/* ---------------- tuning constants ---------------- */
 
-const c = (label, quality, outcome) => ({ label, quality, outcome });
-const pu = (name, emoji, feature, does, message) => ({ name, emoji, feature, does, message });
-const ch = (headline, brief, choices, lesson, powerup) => ({ headline, brief, choices, lesson, powerup });
+export const TUNING = {
+  QUARTER_SECONDS: 40,          // one quarter of real time
+  DAYS_PER_QUARTER: 90,         // what those seconds represent
+  SPAWN_PER_QUARTER: [18, 30, 48, 70],
+  SPAWN_ACCEL: 0.62,            // <1 = spawns cluster toward quarter end
+  HANDLE_HOLD_MS: 1200,         // click-and-hold to clear a ticket
+  GRACE_MS: 4000,               // unhandled tickets are free this long
+  DAMAGE_PER_TICK: 1,           // meter points per DAMAGE_TICK_MS unhandled
+  DAMAGE_TICK_MS: 2000,
+  AGENT_HANDLE_MS: 2200,        // each drafted agent fires this often
+  AGENT_CROSSLANE_MULT: 0.5,    // off-lane speed with the Orchestrator
+  AGENT_IDLE_MULT: 0.4,         // off-lane speed when idle without it
+  DATA360_RATE_MULT: 1.5,       // Data 360 speeds up every OTHER agent
+  METER_START: { productivity: 80, happiness: 80, debt: 25 },
+  ROLE_SPAWN_WEIGHT: 0.45,      // share of tickets drawn from your own seat
+  BOSS_VOLUME: 4000,
+  BOSS_AGENTS_TO_CLEAR: 3,      // never shown on screen
+  LOSS_AUDIT_DAY: 340,
+  WIN_DAY: 365,
+  DRAFT_POOL_SIZE: 10,
+  /* Manual Ops mode: same game, no drafts, tuned to kill
+     between day 40 and day 90. Do not soften it. */
+  MANUAL_OPS: { spawnMult: 2.4, damageMult: 3.2 },
+  DEMO_SEED: 20260729,
+};
+
+/* ---------------- themes ----------------
+   Every ticket carries one of the five slot themes.
+   meter: which meter it hits ('debt' RISES instead of draining). */
+
+export const THEMES = {
+  signature:    { label: 'SIGNATURE',   meter: 'productivity', color: '#ff2e9a' },
+  messyData:    { label: 'MESSY DATA',  meter: 'happiness',    color: '#ffe600' },
+  disconnected: { label: 'DISCONNECTED', meter: 'productivity', color: '#2ee6ff' },
+  techDebt:     { label: 'TECH DEBT',   meter: 'debt',         color: '#ff5555' },
+  aiMishap:     { label: 'AI MISHAP',   meter: 'happiness',    color: '#b26bff' },
+};
+
+/* slot order is fixed: signature, messy data, disconnected, tech debt, AI mishap */
+export const SLOT_THEMES = ['signature', 'messyData', 'disconnected', 'techDebt', 'aiMishap'];
+
+/* ---------------- roles + the 30-headline ticket pool ----------------
+   Each role: 5 headlines in slot-theme order. `death` is the loss-card
+   cause-of-death line; {n} is filled with spawnCount × per. */
+
+const t = (headline, death, per = 0) => ({ headline, death, per });
 
 export const ROLES = [
-  /* ================================ CEO ================================ */
   {
     key: 'ceo', name: 'CEO', emoji: '👩‍💼', tagline: 'Grow the business.',
-    metric: 'COMPANY ALIGNMENT',
-    win: 'Every team reports the same number. On purpose.',
-    victory: 'One source of truth. One number. The board deck finally agrees with itself.',
-    challenges: [
-      ch('TWO TEAMS, TWO REVENUE NUMBERS',
-        ['Sales says Q3 was $4.0M. Finance says $2.8M.',
-          'Both numbers are already in the board pre-read.',
-          'Both teams are certain. The meeting is Thursday.'],
-        [
-          c('Halt the pre-read until both teams reconcile to one source', 'best',
-            'You stop the deck, sit both teams down, and one number comes out the other side. It costs you two days and the board never sees the gap.'),
-          c('Present both numbers side by side with a footnote', 'ok',
-            'The board thanks you for the transparency, then spends the whole meeting on the footnote instead of the strategy.'),
-          c('Go with the higher number — momentum matters', 'bad',
-            'It lands in the 10-Q. Finance restates it six weeks later, and now the story is about your reporting, not your growth.'),
-        ],
-        'You settled this quarter\'s number. Next quarter, both teams will pull from the same broken sources and do it again.',
-        pu('The Briefing Agent', '🧠',
-          'Agentforce on Data 360: answers exec questions from live, unified company data',
-          'Ask "what was Q3 revenue?" and get one grounded answer with its sources attached — before anyone builds a slide.',
-          'One number, every team, every time you ask.')),
-
-      ch('NOBODY AGREES WHO THE CUSTOMER IS',
-        ['Sales counts 8,200 accounts. Support counts 11,500.',
-          'Finance bills 9,100 of them.',
-          'You are asked on stage next week how many customers you have.'],
-        [
-          c('Commission a company-wide manual reconciliation', 'best',
-            'Six weeks and two analysts later you have a defensible number. It is already stale by the time you say it out loud.'),
-          c('Quote the biggest number and move on', 'bad',
-            'A journalist checks it against your filings. Now the headline is about the discrepancy.'),
-          c('Say "roughly ten thousand" and change the subject', 'ok',
-            'You survive the stage. Every forecast built on that vagueness inherits it.'),
-        ],
-        'Three systems, three truths. You can reconcile them by hand forever, or once.',
-        pu('Data 360', '🗄️',
-          'Data Cloud: unifies records across every system into one customer profile',
-          'One customer, one record, everywhere — and every agent and dashboard reads from it.',
-          'AI on top of bad data is a power-up that powers nothing.')),
-
-      ch('THREE DEPARTMENTS, ONE PROJECT, ZERO PROGRESS',
-        ['Ops, Product, and Marketing each believe they own the launch.',
-          'All three have a roadmap. None of them match.',
-          'The launch date is in five weeks.'],
-        [
-          c('Name one owner and put the other two in support', 'best',
-            'Ownership gets clear in a day and the launch survives. You spend the next week absorbing the politics personally.'),
-          c('Run a weekly sync so all three stay aligned', 'ok',
-            'The meeting becomes the project. Alignment happens in the room and evaporates by Wednesday.'),
-          c('Let them compete — the best plan will win', 'bad',
-            'Two teams ship two versions to the same customers. Pricing differs by 40% and the market notices first.'),
-        ],
-        'You untangled one launch by hand. The silos that tangled it are still exactly where they were.',
-        pu('Cross-Cloud Orchestrator', '☁️',
-          'Agentforce multi-agent orchestration across Sales, Service, and Marketing clouds',
-          'One workflow spans all three departments: handoffs happen automatically and every team sees the same plan.',
-          'Silos are a speed tax. This is the refund.')),
-
-      ch("OPS RUNS ON DAVE'S SPREADSHEET",
-        ['Every order flows through one file with 40 hidden macros.',
-          'Only Dave understands it. Dave gave notice this morning.',
-          'He leaves in eleven days.'],
-        [
-          c("Pay Dave as a consultant and document it in his last week", 'best',
-            'You capture most of it. The parts he never wrote down leave with him, and the file still runs your business.'),
-          c('Assign two people to shadow him full time', 'ok',
-            'They learn to operate it without understanding it. The next time it breaks, nobody can fix it.'),
-          c('Counter-offer whatever it takes to keep Dave', 'bad',
-            'Dave stays for six months. The dependency deepens, and now everyone knows the price of being irreplaceable.'),
-        ],
-        'You transferred the knowledge. The manual process — and the single point of failure — is untouched.',
-        pu('Process Automation Agent', '⚙️',
-          'Agentforce + Flow: turns the spreadsheet workflow into an automated, documented process',
-          'Orders route, validate, and reconcile themselves — with every step logged and no hidden macros.',
-          'Institutional knowledge belongs in your systems, not in one person\'s file.')),
-
-      ch('THE AI BOARD SUMMARY INVENTED A METRIC',
-        ['Your new AI assistant drafted the board summary.',
-          'It cites "net revenue efficiency of 34%" — a metric that does not exist.',
-          'The deck went out to all eleven directors an hour ago.'],
-        [
-          c('Send a correction now, naming exactly what was wrong', 'best',
-            'Awkward for a day, trusted afterwards. One director replies that the correction was more useful than the summary.'),
-          c('Quietly fix the deck and hope nobody read page four', 'ok',
-            'Two of them read page four. They ask about it in the meeting, and now the AI is the topic.'),
-          c('Let it stand — it sounded plausible enough', 'bad',
-            'A director builds a question around it for the earnings call. The number cannot survive being asked about.'),
-        ],
-        'Confidently wrong is worse than slow. An assistant that cannot show its sources cannot be trusted with your board.',
-        pu('Grounded Answers + Observability', '🔍',
-          'Agentforce grounding with citations, plus observability over every agent action',
-          'Every figure an agent states is traced to a real record, and you can audit what it did and why.',
-          'Trust is a feature. It has to be built in.')),
+    tickets: [
+      t('TWO TEAMS, TWO REVENUE NUMBERS', '{n} board pre-reads, no two numbers matching', 3),
+      t('NOBODY AGREES WHO THE CUSTOMER IS', '{n} definitions of "customer", zero agreement', 3),
+      t('THREE DEPARTMENTS, ONE PROJECT, ZERO PROGRESS', '{n} competing roadmaps for the same launch', 2),
+      t("OPS RUNS ON DAVE'S SPREADSHEET", "Dave's spreadsheet ran the company. Dave ran out."),
+      t('THE AI BOARD SUMMARY INVENTED A METRIC', 'the AI invented {n} metrics and the board quoted all of them', 2),
     ],
   },
-
-  /* ================================ CFO ================================ */
   {
     key: 'cfo', name: 'CFO', emoji: '💰', tagline: 'Protect the bottom line.',
-    metric: '$ PROTECTED',
-    win: 'Cost per resolution down 62%. Duplicate tools: zero.',
-    victory: 'Every dollar accounted for. The bottom line started protecting itself.',
-    challenges: [
-      ch('YOUR CHATBOT REFUNDED EVERYONE',
-        ['Overnight it approved 1,400 refunds totalling $340,000.',
-          'The policy cap is $200 and no human approved any of them.',
-          'It is still running.'],
-        [
-          c('Freeze the bot and hold every unsettled payment', 'best',
-            'You stop it inside the hour and claw back $260,000 before settlement. The remaining $80,000 is gone, and you keep every customer.'),
-          c('Let the refunds stand and shut the bot off tomorrow', 'ok',
-            'Customers are delighted. Finance is not: the full $340,000 lands, and 300 more refunds process while you wait.'),
-          c('Leave it running and blame the vendor', 'bad',
-            'By Friday it is $900,000 and a compliance finding. The vendor points at your configuration, and they are right.'),
-        ],
-        'You stopped this one. Nothing you did prevents an autonomous system from spending your money tomorrow.',
-        pu('Guardrailed Service Agent', '🛡️',
-          'Agentforce with policy guardrails and approval steps on agent actions',
-          'Any refund past policy is held for a human before money moves — every time, without a person watching the queue.',
-          'Guardrails are what make autonomy safe enough to use.')),
-
-      ch('ONE VENDOR, FOUR SPELLINGS, FOUR CONTRACTS',
-        ['"Acme Inc", "ACME", "Acme Incorporated", "acme inc."',
-          'Four separate contracts, four renewal dates, four rates.',
-          'Combined, you are their largest customer and paying list price.'],
-        [
-          c('Consolidate all four into one negotiated master agreement', 'best',
-            'You cut 22% off the combined spend. It took your team three weeks of matching records by hand to prove they were one vendor.'),
-          c('Cancel the two smallest and keep the rest', 'ok',
-            'You save a little and break a workflow that depended on one of them. The duplication returns under a new spelling.'),
-          c('Leave it — the finance team knows they are the same', 'bad',
-            'Two renew automatically at list price. Nobody catches it until the audit, because "knowing" was never in a system.'),
-        ],
-        'You found these four. There are eleven more vendors like this and no system that can see them.',
-        pu('Data 360', '🗄️',
-          'Data Cloud: dedupes and unifies vendor and customer records across systems',
-          'Four spellings resolve to one vendor automatically, with total spend visible in one place.',
-          'You cannot negotiate leverage you cannot see.')),
-
-      ch('THREE TOOLS, ONE JOB, ALL AUTO-RENEWED',
-        ['Three platforms doing the same thing: $180,000 a year combined.',
-          'All three renewed at midnight.',
-          'The cancellation window closes in 30 days.'],
-        [
-          c('Map actual usage, then cancel the two nobody uses', 'best',
-            'You recover $104,000 inside the window. It takes a month of chasing teams for answers about their own tools.'),
-          c('Cancel the two most expensive immediately', 'ok',
-            'You save more upfront and break a workflow in Support that quietly depended on one of them.'),
-          c('Keep all three — switching costs are real', 'bad',
-            'You pay for three years of the same capability, and a fourth tool gets bought next quarter by someone who did not know.'),
-        ],
-        'Tool sprawl is a symptom. Nothing you did stops the next duplicate purchase.',
-        pu('Spend Orchestration Agent', '🤝',
-          'Agentforce across procurement and contract data: renewal analysis and duplicate detection',
-          'Overlapping tools and upcoming renewals surface before they auto-renew, with a recommendation attached.',
-          'Savings you find once are luck. Savings you find every time are a system.')),
-
-      ch('MONTH-END CLOSE IS 300 MANUAL ENTRIES',
-        ['Your team works two weekends every month to close the books.',
-          '300 journal entries, keyed by hand, reconciled by hand.',
-          'Two senior accountants just resigned citing burnout.'],
-        [
-          c('Automate the 40 highest-volume entry types first', 'best',
-            'Close drops from nine days to five and the weekends stop. The other 260 entry types still need hands.'),
-          c('Hire two contractors to absorb the volume', 'ok',
-            'The weekends stop while the contracts last. Cost per close goes up and nothing is documented.'),
-          c('Push the close deadline out by three days', 'bad',
-            'The work is identical, just later. Your board reporting slips with it and investors notice the lag.'),
-        ],
-        'You automated the easy 40. The other 260 are still a person copying numbers between systems.',
-        pu('Close Automation Agent', '🧾',
-          'Agentforce + Flow across finance systems: automated entries, matching, and reconciliation',
-          'Routine entries post and reconcile themselves; your team reviews exceptions instead of typing.',
-          'Your accountants should be analysing, not transcribing.')),
-
-      ch('THE AI EXPENSE APPROVER APPROVED A BOAT',
-        ['Line item: "client entertainment vessel — $84,000."',
-          'Your AI approver passed it. Twice.',
-          'It has approved 2,300 expenses this quarter and you cannot tell which ones it got wrong.'],
-        [
-          c('Suspend auto-approval and audit all 2,300 by hand', 'best',
-            'You find the boat and four other bad calls. It costs three weeks and every routine expense backs up behind the audit.'),
-          c('Add a hard dollar ceiling and keep it running', 'ok',
-            'The boat cannot happen again. The subtler mistakes under the ceiling keep going through unnoticed.'),
-          c('Reverse the boat and say nothing', 'bad',
-            'Auditors find it before you mention it. The finding is not the boat — it is that nobody could explain the approval.'),
-        ],
-        'You cannot fix what you cannot see. An agent whose decisions are not auditable is a liability with good intentions.',
-        pu('Anomaly Watcher + Observability', '🚨',
-          'Agentforce observability with anomaly detection over every agent decision',
-          'Unusual approvals are flagged in real time and every decision is traceable to its reasoning and policy.',
-          'Autonomy without auditability is just risk with better latency.')),
+    tickets: [
+      t('YOUR CHATBOT REFUNDED EVERYONE', 'your chatbot refunded ${n} and was very sorry', 85000),
+      t('ONE VENDOR, FOUR SPELLINGS, FOUR CONTRACTS', '{n} vendors, each spelled four ways, all at list price', 4),
+      t('THREE TOOLS, ONE JOB, ALL AUTO-RENEWED', '{n} tools doing one job, all auto-renewed', 3),
+      t('MONTH-END CLOSE IS 300 MANUAL ENTRIES', '{n} manual journal entries. The books never closed.', 300),
+      t('THE AI EXPENSE APPROVER APPROVED A BOAT', 'the AI approved a boat. Then {n} more boats.', 2),
     ],
   },
-
-  /* ================================ CTO ================================ */
   {
     key: 'cto', name: 'CTO', emoji: '💻', tagline: 'Keep the tech stack from collapsing.',
-    metric: 'ENGINEERING CAPACITY',
-    win: 'Tier-1 deflection 78%. Engineering interrupts down 71%.',
-    victory: 'The stack held. Engineering is building again — not firefighting.',
-    challenges: [
-      ch('SUPPORT TICKETS ARE BURYING ENGINEERING',
-        ['412 tickets escalated to engineering this month.',
-          'You audit a sample: 380 were password resets, how-to questions, and known issues.',
-          'Your senior engineers shipped nothing for three weeks.'],
-        [
-          c('Put a triage engineer in front of the queue on rotation', 'best',
-            'Interrupts drop 60% immediately. You have now permanently assigned one engineer to not building anything.'),
-          c('Tell Support to stop escalating without a repro', 'ok',
-            'Volume halves. So does the signal — two real outages sit in the queue for a day because they lacked a repro.'),
-          c('Let the team self-manage the interruptions', 'bad',
-            'Your two best engineers spend the quarter on password resets and start interviewing elsewhere.'),
-        ],
-        'You moved the burden onto an engineer. The 380 routine tickets still need answering, forever.',
-        pu('Service Agent (Tier-1 Deflection)', '🐛',
-          'Agentforce Service Agent: classifies and fully resolves routine cases',
-          'Password resets, how-tos, and known issues are resolved end-to-end before a human sees them.',
-          'Deflection is what keeps engineers building.')),
-
-      ch('THREE SYSTEMS, THREE VERSIONS OF ONE CUSTOMER',
-        ['Billing, the app, and Support each hold a different record for the same account.',
-          'Different plan, different email, different renewal date.',
-          'Support just told a customer their plan does not include a feature they pay for.'],
-        [
-          c('Pick billing as the source of truth and sync the others nightly', 'best',
-            'Answers get consistent within a day of reality. Anything that happens between syncs is still a coin flip.'),
-          c('Build a lookup tool that queries all three at once', 'ok',
-            'Support can see all three versions. Now a human decides which one is true, on every single call.'),
-          c('Tell Support to always check billing first', 'bad',
-            'They do, sometimes. The inconsistency becomes a training issue that never fully resolves.'),
-        ],
-        'Nightly syncs and lookup tools are scaffolding around the actual problem: there is no single record.',
-        pu('Data 360', '🗄️',
-          'Data Cloud: one unified customer profile across billing, product, and support',
-          'Every system and every agent reads the same live record — no syncs, no reconciliation, no coin flips.',
-          'One customer should mean one record.')),
-
-      ch('PROD IS DOWN AND NOBODY OWNS THE HANDOFF',
-        ['Checkout has been failing for 22 minutes.',
-          'Support has 400 tickets, engineering has an alert, and neither knows about the other.',
-          'The status page still says all systems operational.'],
-        [
-          c('Declare an incident and force everyone into one channel', 'best',
-            'Resolved in eleven minutes once the room exists. Creating that room manually cost you the first 22.'),
-          c('Have engineering fix it and Support handle customers separately', 'ok',
-            'Both halves work. Customers get told it is fine while it is being rolled back, and the status page stays wrong.'),
-          c('Wait for the on-call rotation to pick it up', 'bad',
-            'Another 40 minutes of failed checkouts. The post-mortem is about the delay, not the bug.'),
-        ],
-        'You built the bridge by hand, mid-incident. Next outage, you build it again from scratch.',
-        pu('Incident Orchestration', '🎛️',
-          'Agentforce multi-agent orchestration across monitoring, Service, and status comms',
-          'A ticket spike correlates to the system alert automatically: incident opened, owners paged, status page updated, customers informed.',
-          'Agents that coordinate beat agents that coexist.')),
-
-      ch('THE DOS TERMINAL IS BEEPING',
-        ['A beige box in the corner runs payroll and billing.',
-          'Undocumented since 2003. It has started beeping.',
-          'Nobody will touch it. Payroll runs Friday.'],
-        [
-          c('Wrap it in an API and stop anyone touching it directly', 'best',
-            'Payroll runs and the risk is contained behind an interface. The box is still the box, and it is still beeping.'),
-          c('Find someone who remembers the system and pay them', 'ok',
-            'A retired contractor silences it over the phone. You have bought time and learned nothing.'),
-          c('Schedule a full rewrite next quarter', 'bad',
-            'Next quarter never arrives. The box keeps beeping and now it is in the risk register, which changes nothing.'),
-        ],
-        'Technical debt is not the old box. It is that all the knowledge about it lives in people who are leaving.',
-        pu('Knowledge Architect', '📚',
-          'Knowledge unification: agents grounded in one current, searchable source of truth',
-          'Every system, runbook, and fix is captured and answerable — so the next person does not need the person before them.',
-          'Debt compounds fastest in the things nobody wrote down.')),
-
-      ch('THE AI CODE REVIEWER APPROVED A SECRET LEAK',
-        ['An API key was committed to a public repo.',
-          'Your AI reviewer approved the PR with the comment "LGTM, no issues found."',
-          'That was six days ago.'],
-        [
-          c('Rotate the key, audit six days of access, then fix the reviewer', 'best',
-            'No breach — you caught it in time. Three days of senior engineering time went into being sure.'),
-          c('Rotate the key and add a secret scanner to CI', 'ok',
-            'Secrets are covered now. Everything else the reviewer waves through is still waved through.'),
-          c('Delete the commit and move on', 'bad',
-            'Git history keeps it and so does every fork. The key stays live because deleting is not rotating.'),
-        ],
-        'An AI that reports "no issues found" without being accountable for what it checked is worse than no reviewer at all.',
-        pu('Agent Observability + Guardrails', '🔍',
-          'Agentforce observability with policy guardrails over agent actions',
-          'Every agent decision is logged, testable, and bounded by policy — and you can see what it actually checked.',
-          'If you cannot audit it, you cannot trust it with production.')),
+    tickets: [
+      t('SUPPORT TICKETS ARE BURYING ENGINEERING', '{n} password resets escalated to your best engineers', 380),
+      t('THREE SYSTEMS, THREE VERSIONS OF ONE CUSTOMER', '{n} versions of every customer, all confidently wrong', 3),
+      t('PROD IS DOWN AND NOBODY OWNS THE HANDOFF', 'checkout down {n} minutes. Status page: green.', 22),
+      t('THE DOS TERMINAL IS BEEPING', 'the DOS terminal beeped {n} times. Then it stopped.', 214),
+      t('THE AI CODE REVIEWER APPROVED A SECRET LEAK', 'the AI reviewer said "LGTM" to {n} leaked keys', 2),
     ],
   },
-
-  /* ================================ CMO ================================ */
   {
     key: 'cmo', name: 'CMO', emoji: '📈', tagline: 'Generate leads Sales actually wants.',
-    metric: 'QUALIFIED PIPELINE',
-    win: 'Lead quality up 3.4×. Steves in the CRM: one, and he is real.',
-    victory: 'Sales just asked for MORE leads. Every one is a real person.',
-    challenges: [
-      ch('MARKETING EMAILED THE WRONG LIST',
-        ['The win-back campaign is going to the churn list.',
-          'Subject line: "Welcome back!" To people who left angry.',
-          '6,000 delivered. 34,000 still queued.'],
-        [
-          c('Kill the send now and apologise only to the 6,000', 'best',
-            'You stop it at 6,000 and the apology lands well — two of them actually reply asking to talk. The other 34,000 never knew.'),
-          c('Let it finish, then send a correction to all 40,000', 'ok',
-            'Forty thousand people get two emails they did not want. Unsubscribes triple and Sales hears about it from a prospect.'),
-          c('Let it ride — some of them might come back', 'bad',
-            'Eleven come back. Four hundred report you as spam, and your sending domain reputation takes the quarter to recover.'),
-        ],
-        'You caught this send with minutes to spare. The next campaign will be built from the same lists by the same process.',
-        pu('Campaign Guardrail Agent', '🛡️',
-          'Agentforce + Marketing Cloud: audience validation and send guardrails before launch',
-          'Every send is checked against live segment logic and suppression rules — a churn list can never receive a win-back.',
-          'The best campaign fix is the one that happens before send.')),
-
-      ch('EVERY CUSTOMER IS CALLED STEVE',
-        ['11,400 records where name, company, and email are all "steve".',
-          'Your form has no validation and never has.',
-          'Friday\'s personalised campaign draws from this list.'],
-        [
-          c('Fix the form validation first, then dedupe the 11,400', 'best',
-            'The bleeding stops and the list gets usable. It costs you Friday\'s send and a hard conversation about the delay.'),
-          c('Have two interns clean the list before Friday', 'ok',
-            'They clean 3,000. The form keeps producing more, so by next month you are back where you started.'),
-          c('Ship Friday\'s send with personalisation switched off', 'bad',
-            '"Hi there" to 40,000 people, half of whom are the same person. Sales rejects the entire lead batch as junk.'),
-        ],
-        'You cleaned the records you could see. Without one profile per real human, personalisation is guesswork.',
-        pu('Data 360', '🗄️',
-          'Data Cloud: identity resolution and unified customer profiles',
-          '11,400 Steves resolve into the real people they represent, and every campaign builds on one live profile.',
-          'Personalisation is a data problem wearing a marketing costume.')),
-
-      ch('SALES SAYS YOUR LEADS ARE GARBAGE',
-        ['You delivered 2,400 MQLs. Sales worked 300 of them.',
-          'Your scoring model and their qualification criteria have never been compared.',
-          'The pipeline review is Monday and both of you have slides.'],
-        [
-          c('Rebuild scoring against deals Sales actually closed', 'best',
-            'Volume drops to 700 and Sales works nearly all of them. You spend Monday explaining why the MQL number fell 70%.'),
-          c('Ask Sales to work more of the leads you send', 'ok',
-            'They work a few hundred more out of goodwill. Conversion stays flat and the argument resumes next quarter.'),
-          c('Report the 2,400 and let Sales explain their conversion', 'bad',
-            'Your number looks great in the deck. Sales stops trusting marketing leads entirely and builds their own pipeline.'),
-        ],
-        'You aligned one model, manually, once. The two teams are still working from two different systems.',
-        pu('Shared Intent Scoring', '🎯',
-          'Agentforce + Data 360 segments: one intent model shared across Marketing and Sales',
-          'Scoring is grounded in what actually closes, and both teams see the same signal on the same profile.',
-          'A lead Sales does not want was never qualified.')),
-
-      ch('ATTRIBUTION SAYS THE FAX MACHINE DROVE Q2',
-        ['Your attribution model credits an unmapped legacy channel with 60% of pipeline.',
-          'That channel ID belongs to a fax line disconnected in 2019.',
-          'Budget planning starts in two weeks.'],
-        [
-          c('Rebuild channel mapping before budget planning', 'best',
-            'You get real numbers in time. It takes both of your analysts for two weeks and delays everything else.'),
-          c('Exclude the phantom channel and redistribute proportionally', 'ok',
-            'The chart looks sane. The redistribution is a guess, and you will plan real money against it.'),
-          c('Present it as-is and caveat the anomaly', 'bad',
-            'Finance builds the budget on the numbers, not the caveat. You defend a fax machine in front of the CFO.'),
-        ],
-        'Legacy tracking held together by manual mapping will drift again the moment you look away.',
-        pu('Unified Analytics Agent', '📊',
-          'Agentforce analytics on Data 360: attribution grounded in unified, live channel data',
-          'Channels resolve automatically against real activity, and anomalies get flagged instead of reported.',
-          'Seeing is not solving — unless what you see is true.')),
-
-      ch("THE AI WROTE AN AD FOR A PRODUCT YOU DON'T SELL",
-        ['Your AI content agent generated 40 ad variants overnight.',
-          'Six of them describe a feature that was cancelled last year.',
-          'Two are already live and converting.'],
-        [
-          c('Pull the six, honour every signup, and ground the agent in the real catalogue', 'best',
-            'You keep the customers and fix the cause. Honouring the signups costs you a support scramble and a small credit.'),
-          c('Pull the ads and let the signups lapse', 'ok',
-            'Cheaper today. Those customers signed up for something you advertised, and they post about it.'),
-          c('Leave them running — the demand proves we should build it', 'bad',
-            'You sell something that does not exist for three more weeks. Legal calls it what it is.'),
-        ],
-        'Your AI was fluent and wrong. Fluency without grounding in your real catalogue is a liability at campaign scale.',
-        pu('Grounded Content + Brand Guardrails', '🔍',
-          'Agentforce grounding on product data with brand and claim guardrails',
-          'Every generated asset is checked against the live catalogue and brand rules before it can go live.',
-          'Generative scale multiplies whatever it is grounded in — including nothing.')),
+    tickets: [
+      t('MARKETING EMAILED THE WRONG LIST', '"Welcome back!" sent to {n} people who left angry', 6000),
+      t('EVERY CUSTOMER IS CALLED STEVE', '{n} customers named Steve', 38),
+      t('SALES SAYS YOUR LEADS ARE GARBAGE', '{n} MQLs delivered. Sales worked none of them.', 2400),
+      t('ATTRIBUTION SAYS THE FAX MACHINE DROVE Q2', 'the budget was planned around a fax machine disconnected in 2019'),
+      t("THE AI WROTE AN AD FOR A PRODUCT YOU DON'T SELL", 'the AI advertised {n} products you do not sell', 6),
     ],
   },
-
-  /* ================================ CRO ================================ */
   {
     key: 'cro', name: 'CRO', emoji: '🤝', tagline: 'Hit your number.',
-    metric: 'FORECAST ACCURACY',
-    win: 'Forecast accuracy 94%. Rep admin time down 80%.',
-    victory: 'Number: hit. Forecast: math, not vibes. Reps: actually selling.',
-    challenges: [
-      ch('THE FORECAST IS VIBES',
-        ['Your reps committed $14M for the quarter.',
-          'The methodology is each rep\'s gut, entered as a percentage.',
-          'The board review is tomorrow morning.'],
-        [
-          c('Re-score every deal against how similar deals actually closed', 'best',
-            'You walk in with $9.2M and defend it with evidence. It takes an all-nighter and $4.8M of uncomfortable conversations.'),
-          c('Apply a flat 30% haircut to every rep\'s commit', 'ok',
-            'Close enough at the top line, wrong on every individual deal. You cannot tell the board which ones will land.'),
-          c('Present the $14M — the team believes it', 'bad',
-            'You miss by $5M. The credibility cost outlasts the quarter, and next quarter nobody believes the good news either.'),
-        ],
-        'You rebuilt this forecast by hand overnight. Next month it will be vibes again.',
-        pu('Forecast Intelligence Agent', '📈',
-          'Agentforce on pipeline data: deal scoring grounded in historical close patterns',
-          'Every deal is scored continuously against what actually closes — the forecast is math you can interrogate.',
-          'A forecast you cannot question is a guess with a spreadsheet.')),
-
-      ch("40 DEALS NAMED 'FOLLOW UP'",
-        ['Your top rep\'s pipeline: 40 opportunities, all named "Follow up".',
-          'No close dates, no next steps, no amounts on 31 of them.',
-          'She is your best closer and she hates the CRM.'],
-        [
-          c('Walk her pipeline with her and fix it together in one sitting', 'best',
-            'Ninety minutes and her pipeline is clean and real. Thirty other reps have the same problem and you have one of you.'),
-          c('Have ops fill in the missing fields from email history', 'ok',
-            'The fields get populated with inference. The forecast now looks precise and is partly fiction.'),
-          c('Leave it — she closes regardless', 'bad',
-            'She does. Then she leaves in month two of the next quarter and $3M of context leaves with her.'),
-        ],
-        'Your best closer should not be your worst data entry clerk — and cleaning up after her does not scale.',
-        pu('Data 360 + SDR Agent', '🗄️',
-          'Data Cloud unification with Agentforce SDR: automatic activity capture and enrichment',
-          'Every call, email, and next step is logged and enriched on one record — without a rep typing it.',
-          'Reps sell. Agents do the admin.')),
-
-      ch("MARKETING'S HOT LEAD IS ALREADY YOUR CUSTOMER",
-        ['A rep just cold-pitched an account on a $400K renewal.',
-          'Marketing scored them as a net-new lead. Support has three open cases with them.',
-          'The customer used the word "unbelievable" and did not mean it kindly.'],
-        [
-          c('Call the customer personally, then connect the three systems on this account', 'best',
-            'The renewal survives and the account exec looks competent again. You fixed one account out of eleven thousand.'),
-          c('Apologise and tell reps to check Support before outreach', 'ok',
-            'Most will, most of the time. The one who does not gets the next embarrassing call.'),
-          c('Move on — no harm done, they stayed', 'bad',
-            'They renew for one year instead of three and mention it in their reference call.'),
-        ],
-        'Sales, Marketing, and Support each knew a third of this customer. Nobody knew the customer.',
-        pu('Cross-Cloud Account Orchestration', '☁️',
-          'Agentforce orchestration across Sales, Marketing, and Service on one profile',
-          'Open cases, renewal status, and campaign history are visible on the account before anyone reaches out.',
-          'Your customer experiences one company. They should meet one.')),
-
-      ch('REPS SPEND SIX HOURS A DAY IN THE CRM',
-        ['Required fields per opportunity went from 8 to 23 last quarter.',
-          'Your team logs activity until 7pm and sells between meetings.',
-          'Two reps quit citing "administrative work".'],
-        [
-          c('Cut required fields to the 8 that drive the forecast', 'best',
-            'Selling time comes back immediately. You lose reporting granularity that three other teams had built dashboards on.'),
-          c('Hire two sales ops coordinators to do the logging', 'ok',
-            'Reps sell again at the cost of two headcount, and the data quality depends on people who were not on the call.'),
-          c('Make CRM hygiene part of the comp plan', 'bad',
-            'Fields get filled. They get filled with whatever satisfies the rule, and the forecast gets worse while looking better.'),
-        ],
-        'You cut fields or you paid people to fill them. Either way a human is still transcribing conversations.',
-        pu('Agentforce SDR', '🧹',
-          'Agentforce SDR: autonomous activity capture, field updates, and follow-up',
-          'Notes, next steps, and every required field are written from the actual conversation — automatically.',
-          'Every hour a rep spends typing is an hour nobody spent selling.')),
-
-      ch('THE AI QUOTED 90% OFF',
-        ['Your AI quoting assistant generated a proposal at 90% discount.',
-          'It is below cost, unsigned, and already in the prospect\'s inbox.',
-          'It has generated 600 quotes this quarter.'],
-        [
-          c('Retract the quote today and put margin floors on the agent', 'best',
-            'Awkward call, honest reason, deal survives at 22%. You also find two other quotes below floor before they are signed.'),
-          c('Honour it as a strategic logo win', 'ok',
-            'You win the logo at a loss and set a reference price. Their procurement team shares it with two peers.'),
-          c('Let the rep negotiate their way out of it', 'bad',
-            'The prospect anchors on 90% and walks when it moves. You lose the deal and the relationship.'),
-        ],
-        'An agent that can price without a floor will eventually price below it. Once is a mistake; 600 times is exposure.',
-        pu('Pricing Guardrails + Observability', '💹',
-          'Agentforce pricing guidance with margin guardrails and full decision observability',
-          'Quotes are bounded by margin policy, and every AI-generated price is auditable before it reaches a customer.',
-          'Discounts by math, not by whatever the model felt.')),
+    tickets: [
+      t('THE FORECAST IS VIBES', '${n}M of committed vibes', 5),
+      t("40 DEALS NAMED 'FOLLOW UP'", '{n} deals named "Follow up", zero next steps', 40),
+      t("MARKETING'S HOT LEAD IS ALREADY YOUR CUSTOMER", 'your hottest lead was already your angriest customer — {n} times', 3),
+      t('REPS SPEND SIX HOURS A DAY IN THE CRM', '{n} rep-hours spent typing instead of selling', 800),
+      t('THE AI QUOTED 90% OFF', 'the AI quoted 90% off, {n} times', 12),
     ],
   },
-
-  /* ========================= HEAD OF CUSTOMER SERVICE ========================= */
   {
     key: 'cs', name: 'Head of Customer Service', emoji: '🎧', tagline: 'Keep customers happy.',
-    metric: 'HONEST RESOLUTIONS',
-    win: 'Deflection 64% — with zero confidently-wrong answers.',
-    victory: 'Queue: empty. CSAT: up. The AI made the right call — 4,000 times in a row.',
-    challenges: [
-      ch('THE QUEUE IS AT FOUR HOURS',
-        ['1,200 cases waiting. Average wait: four hours and eleven minutes.',
-          'You audit 100 of them: 71 are the same five questions.',
-          'Your hold music has one song.'],
-        [
-          c('Publish answers to the five questions and route them to self-serve', 'best',
-            'Wait times halve within two days. The 29% that need a human still wait two hours, and the five questions still get asked forever.'),
-          c('Authorise overtime and pull three people from Tier 2', 'ok',
-            'The queue clears by Friday and rebuilds by Tuesday. Tier 2 escalations back up behind it.'),
-          c('Raise the target wait time to four hours', 'bad',
-            'The number turns green. CSAT does not, and your team learns that the metric is the target, not the customer.'),
-        ],
-        'You answered the five questions once. They will be asked ten thousand more times this year.',
-        pu('Service Agent (Auto-Resolve)', '📥',
-          'Agentforce Service Agent: full resolution of routine cases, with honest handoff when unsure',
-          'The five questions are resolved end-to-end in seconds — and anything ambiguous reaches a human with full context.',
-          'Deflect the routine. Dignify the complex.')),
-
-      ch('ONE CUSTOMER, SIX RECORDS, SIX ANSWERS',
-        ['A customer has contacted you six times about the same issue.',
-          'Each contact created a new case against a different record.',
-          'They have been told three different things, all of them confidently.'],
-        [
-          c('Merge the records, assign one owner, and call them yourself', 'best',
-            'They stay, and they tell you it was the first time anyone knew who they were. You did this for one of eleven thousand accounts.'),
-          c('Assign the newest case to a senior agent to sort out', 'ok',
-            'This case gets resolved well. The five duplicate records remain and will fragment the next conversation.'),
-          c('Close five as duplicates and answer the newest', 'bad',
-            'The customer sees five cases closed without explanation and escalates publicly.'),
-        ],
-        'Six records for one person means six versions of the truth. No amount of good agents fixes that.',
-        pu('Data 360', '🗄️',
-          'Data Cloud: identity resolution into one live customer profile',
-          'Every contact — any channel, any time — lands on one record with the full history attached.',
-          'You cannot give one answer to a customer you see six ways.')),
-
-      ch("STATUS PAGE GREEN, 4,000 SAY IT'S DOWN",
-        ['Reports are arriving at 200 a minute from one region.',
-          'Monitoring shows all systems normal. The status page is green.',
-          'Engineering says they see nothing.'],
-        [
-          c('Trust the customers, declare an incident, and update the status page', 'best',
-            'A regional CDN failure is found in eighteen minutes. You spent the first ten arguing with a dashboard.'),
-          c('Ask agents to keep logging tickets while engineering investigates', 'ok',
-            'The pattern eventually becomes undeniable. Two thousand more customers hit it in the meantime.'),
-          c('Reply with the standard "we are not seeing an issue" macro', 'bad',
-            'Four thousand people are told they are wrong about their own experience. That is the screenshot that travels.'),
-        ],
-        'Your customers detected the outage before your monitoring did — and nothing connected the two.',
-        pu('Service Mesh Orchestration', '🕸️',
-          'Agentforce orchestration correlating case spikes with system telemetry',
-          'A ticket spike in one region automatically correlates to infrastructure signals, opens the incident, and corrects the status page.',
-          'Your customers should never be your monitoring.')),
-
-      ch('THE MACRO LIBRARY CONTRADICTS ITSELF',
-        ['840 saved replies, written over nine years.',
-          'Three of them give different refund windows: 14, 30, and 90 days.',
-          'All three are in active use today.'],
-        [
-          c('Audit the top 100 macros and retire the contradictions', 'best',
-            'The refund answer is consistent within a week. The other 740 macros are still nine years of accumulated drift.'),
-          c('Add a note telling agents to verify policy before sending', 'ok',
-            'Careful agents verify. Busy agents send the macro, and the contradiction survives in the fast lane.'),
-          c('Delete the two older ones and hope they were unused', 'bad',
-            'One was in a training doc. New hires learn a policy that no longer exists.'),
-        ],
-        'Nine years of copied answers is technical debt written in customer-facing language.',
-        pu('Knowledge Unification', '📚',
-          'Knowledge grounding: one current source of truth for every policy answer',
-          'Agents and humans answer from the same live policy — contradictions cannot survive because there is one version.',
-          'Every stale answer is a promise you did not mean to make.')),
-
-      ch('YOUR AI CONFIDENTLY MADE THE WRONG DECISION',
-        ['Your AI told 300 customers the product they use is discontinued.',
-          'It is not. The AI was confident, fluent, and wrong.',
-          'Two customers have already quoted it in public reviews.'],
-        [
-          c('Correct all 300 personally and make the agent say "I am not sure"', 'best',
-            'You keep 287 of them. The fix that matters is the second half: the agent now escalates instead of inventing.'),
-          c('Post a public clarification and update the knowledge base', 'ok',
-            'The record is corrected for people who read clarifications. The 300 who were told directly mostly do not.'),
-          c('Let support handle the ones who complain', 'bad',
-            'Eighty churn without complaining first. The reviews stay up and rank for your product name.'),
-        ],
-        'The failure was not that the AI did not know. It was that it did not know that it did not know.',
-        pu('Guardrails + Honest Handoff', '🛡️',
-          'Agentforce guardrails with grounded answers, confidence thresholds, and observability',
-          'Answers are grounded in real product data, and low-confidence cases hand off to a human with context instead of guessing.',
-          "The best thing an agent can say is: I don't know — let me get someone who does.")),
+    tickets: [
+      t('THE QUEUE IS AT FOUR HOURS', 'the queue hit {n} hours and the hold music had one song', 4),
+      t('ONE CUSTOMER, SIX RECORDS, SIX ANSWERS', '{n} records per customer, six answers per question', 6),
+      t("STATUS PAGE GREEN, 4,000 SAY IT'S DOWN", '{n} customers reported the outage before monitoring did', 800),
+      t('THE MACRO LIBRARY CONTRADICTS ITSELF', '{n} macros, three refund policies, zero agreement', 280),
+      t('YOUR AI CONFIDENTLY MADE THE WRONG DECISION', 'the AI told {n} customers their product was discontinued. It was not.', 300),
     ],
+  },
+];
+
+/* flat ticket pool: 30 entries with role + theme tags */
+export const TICKET_POOL = ROLES.flatMap((r) =>
+  r.tickets.map((tk, slot) => ({
+    role: r.key,
+    theme: SLOT_THEMES[slot],
+    headline: tk.headline,
+    death: tk.death,
+    per: tk.per,
+  }))
+);
+
+/* ---------------- the 10-card draft pool ----------------
+   Six role flagships (slot-1 power-ups, condensed) + four
+   cross-cutting cards. `rule` is the intercept rule in plain
+   language; `capability` is the real-capability line.
+   `custom: true` renders the CUSTOM AGENT · BUILT ON AGENTFORCE
+   subtitle (the v6 naming rule).
+
+   Intercept lanes (implemented in the component):
+   - flagship: tickets from its role, plus any signature ticket
+   - data360:  messy-data tickets; merges duplicates; every OTHER
+               agent fires DATA360_RATE_MULT faster
+   - orchestrator: disconnected tickets; every drafted agent may
+               take off-lane tickets at half speed
+   - guardrails: AI-mishap tickets spawn pre-blocked, zero damage
+   - flow:     tech-debt tickets; TECHNICAL DEBT rises half as fast */
+
+export const DRAFT_POOL = [
+  {
+    key: 'brief', kind: 'flagship', role: 'ceo', icon: '🧠',
+    name: 'THE BRIEFING AGENT', short: 'BRIEFING AGENT', custom: true,
+    rule: 'Intercepts CEO fires — board numbers, alignment, launches.',
+    capability: 'Agentforce on Data 360: grounded answers from live company data.',
+  },
+  {
+    key: 'sentinel', kind: 'flagship', role: 'cfo', icon: '🛡️',
+    name: 'REFUND SENTINEL', short: 'REFUND SENTINEL', custom: true,
+    rule: 'Intercepts finance fires — rogue refunds, renewals, runaway spend.',
+    capability: 'Agentforce Service Agent with policy guardrails on payments.',
+  },
+  {
+    key: 'tier1', kind: 'flagship', role: 'cto', icon: '🐛',
+    name: 'SERVICE AGENT · TIER 1', short: 'SERVICE AGENT', custom: false,
+    rule: 'Intercepts tech fires — escalations, outages, the beeping box.',
+    capability: 'Agentforce Service Agent: resolves routine cases end-to-end.',
+  },
+  {
+    key: 'campaign', kind: 'flagship', role: 'cmo', icon: '📣',
+    name: 'CAMPAIGN GUARDRAIL AGENT', short: 'CAMPAIGN AGENT', custom: true,
+    rule: 'Intercepts marketing fires — wrong lists, junk leads, phantom channels.',
+    capability: 'Agentforce + Marketing Cloud: audience checks before every send.',
+  },
+  {
+    key: 'forecast', kind: 'flagship', role: 'cro', icon: '📈',
+    name: 'FORECAST INTELLIGENCE AGENT', short: 'FORECAST AGENT', custom: true,
+    rule: 'Intercepts sales fires — vibe forecasts, stale pipeline, CRM drag.',
+    capability: 'Agentforce on pipeline data: deal scoring from real close patterns.',
+  },
+  {
+    key: 'resolve', kind: 'flagship', role: 'cs', icon: '📥',
+    name: 'SERVICE AGENT · AUTO-RESOLVE', short: 'SERVICE AGENT', custom: false,
+    rule: 'Intercepts service fires — queues, duplicate cases, angry reviews.',
+    capability: 'Agentforce Service Agent: full resolution with honest handoff.',
+  },
+  {
+    key: 'data360', kind: 'data360', icon: '🗄️',
+    name: 'DATA 360', short: 'DATA 360', custom: false,
+    rule: 'Merges duplicate tickets into one. Every other agent works 1.5× faster.',
+    capability: 'Data Cloud: one live record per real customer, everywhere.',
+  },
+  {
+    key: 'orchestrator', kind: 'orchestrator', icon: '☁️',
+    name: 'CROSS-CLOUD ORCHESTRATOR', short: 'ORCHESTRATOR', custom: false,
+    rule: 'Every drafted agent can now grab tickets outside its lane at half speed.',
+    capability: 'Agentforce multi-agent orchestration across every cloud.',
+  },
+  {
+    key: 'guardrails', kind: 'guardrails', icon: '🚧',
+    name: 'GUARDRAILS + OBSERVABILITY', short: 'GUARDRAILS', custom: false,
+    rule: 'AI-mishap tickets arrive pre-blocked, stamped with a receipt. Zero damage.',
+    capability: 'Agentforce guardrails, grounding, and full action logs.',
+  },
+  {
+    key: 'flow', kind: 'flow', icon: '⚙️',
+    name: 'PROCESS AUTOMATION (FLOW)', short: 'FLOW', custom: false,
+    rule: 'Intercepts tech-debt tickets and halves TECHNICAL DEBT rise.',
+    capability: 'Agentforce + Flow: manual processes become logged automations.',
   },
 ];
