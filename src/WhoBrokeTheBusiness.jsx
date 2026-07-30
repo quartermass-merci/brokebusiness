@@ -727,10 +727,15 @@ export default function WhoBrokeTheBusiness() {
               whileHover={{ scale: 1.04, boxShadow: '0 0 22px rgba(46,230,255,0.7)' }} whileTap={{ scale: 0.96 }}
               className="absolute cursor-pointer border-2 border-transparent hover:border-[#2ee6ff] bg-transparent"
               style={{ left: '36.5%', top: '68%', width: '27%', height: '10.5%' }} />
-            <button data-testid="manual-ops" onClick={() => { setMode('manual'); setPhase('roleSelect'); }}
-              className="btn-pixel absolute left-1/2 -translate-x-1/2 bottom-[4%] text-[9px] px-5 py-3 bg-black/85 text-[#ff5555] border-[#ff5555]">
-              MANUAL OPS MODE
-            </button>
+            {/* centered by the wrapper, not a transform: .btn-pixel's hover/active
+                transforms replace the transform property, so a translate-centered
+                button jumps sideways the moment the cursor reaches it */}
+            <div className="absolute inset-x-0 bottom-[4%] flex justify-center pointer-events-none">
+              <button data-testid="manual-ops" onClick={() => { setMode('manual'); setPhase('roleSelect'); }}
+                className="btn-pixel pointer-events-auto text-[9px] px-5 py-3 bg-black/85 text-[#ff5555] border-[#ff5555]">
+                MANUAL OPS MODE
+              </button>
+            </div>
             {IS_DEMO && (
               <div className="absolute top-2 right-2 h-pixel text-[8px] text-[#ffe600] bg-black/80 border-2 border-[#ffe600] px-2 py-1">DEMO SEED</div>
             )}
